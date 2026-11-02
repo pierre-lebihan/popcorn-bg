@@ -1,0 +1,78 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+  schedule:
+    # Rafraîchit automatiquement la liste tous les matins à 05h30 UTC avec les dernières notes IMDb & ton compte TMDB
+    - cron: "30 5 * * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check TMDB secrets
+        id: check_secrets
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          TMDB_SESSION_ID: ${{ secrets.TMDB_SESSION_ID }}
+        run: |
+          if [ -n "$TMDB_API_KEY" ] && [ -n "$TMDB_SESSION_ID" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Python
+        if: steps.check_secrets.outputs.enabled == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache IMDb & TMDB datasets
+        if: steps.check_secrets.outputs.enabled == 'true'
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: tmdb-imdb-cache-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            tmdb-imdb-cache-${{ runner.os }}-
+
+      - name: Rebuild docs/data.json from TMDB + IMDb
+        if: steps.check_secrets.outputs.enabled == 'true'
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          TMDB_SESSION_ID: ${{ secrets.TMDB_SESSION_ID }}
+          TMDB_WATCH_REGION: ${{ vars.TMDB_WATCH_REGION || 'BG' }}
+          TMDB_WATCH_PROVIDER_IDS: ${{ vars.TMDB_WATCH_PROVIDER_IDS || '8,119,350' }}
+        run: |
+          pip install -r requirements.txt
+          python scripts/export_web.py --out docs/data.json
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

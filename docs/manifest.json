@@ -1,0 +1,16 @@
+{
+  "name": "Popcorn BG — Top Films & Séries",
+  "short_name": "Popcorn BG",
+  "description": "Top Films & Séries (Netflix, Prime Video, Apple TV BG) triés par IMDb avec suivi par saison et épisode.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0b0d12",
+  "theme_color": "#0b0d12",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%23111520'/%3E%3Ctext x='64' y='86' font-size='72' text-anchor='middle'%3E%F0%9F%8D%BF%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}
