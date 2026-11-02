@@ -57,12 +57,15 @@ python scripts/tmdb_top50.py --list-providers        # lister les IDs de platefo
 python scripts/tmdb_top50.py --region FR --providers 8,119,350
 ```
 
-## Application Web Mobile (GitHub Pages)
+## Application Web Mobile (GitHub Pages + Supabase + TMDB)
 
-Une web-app mobile en lecture seule est disponible dans [`docs/index.html`](docs/index.html) (alimentée par [`docs/data.json`](docs/data.json), sans exposer `TMDB_API_KEY` ni `TMDB_SESSION_ID` côté navigateur).
+L'application web [`docs/index.html`](docs/index.html) + [`docs/app.js`](docs/app.js) :
+- Charge le catalogue public et les notes IMDb depuis [`docs/data.json`](docs/data.json) (aucune donnée personnelle ni clé privée dans le dépôt public).
+- Authentifie uniquement **Pierre** (`l.bihan.pierre@gmail.com`) et **Vilma** (`krstevska.vilma95@gmail.com`) via **Google OAuth** sur Supabase (`popcorn-bg`, ref `ykqwnuuuveeqgfuspkfz`), toute autre inscription étant bloquée en base (`trg_popcorn_auth_allowlist`).
+- Passe par l'Edge Function [`supabase/functions/popcorn/index.ts`](supabase/functions/popcorn/index.ts) pour lire les « vus » des deux membres du foyer et cocher/décocher **films, séries entières, saisons ou épisodes** sur le compte de la personne connectée.
 
 ```bash
-# Mettre à jour les données statiques (300 films + 300 séries + notes par saison & épisode)
+# Mettre à jour le catalogue statique (300 films + 300 séries + notes par saison & épisode)
 python scripts/export_web.py
 
 # Tester en local (puis ouvrir http://localhost:8080)

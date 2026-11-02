@@ -184,7 +184,7 @@ def unique_genres(gids: list[int], gmap: dict[int, str]) -> list[str]:
     return out
 
 
-def serialize_movie(m: dict, global_rank: int, unwatched_rank: int | None, gmap: dict[int, str]) -> dict:
+def serialize_movie(m: dict, global_rank: int, gmap: dict[int, str]) -> dict:
     title = m.get("title") or "?"
     orig = m.get("original_title") or ""
     return {
@@ -200,9 +200,7 @@ def serialize_movie(m: dict, global_rank: int, unwatched_rank: int | None, gmap:
         "imdb": m.get("global_imdb_rating"),
         "votes": m.get("imdb_votes") or 0,
         "tmdb": round(m.get("vote_average") or 0, 1),
-        "vu": bool(m.get("vu")),
         "rankAll": global_rank,
-        "rank": unwatched_rank,
         "tmdbUrl": m.get("tmdb_url"),
         "watchUrl": m.get("watch_url"),
         "imdbUrl": m.get("imdb_url"),
@@ -212,17 +210,14 @@ def serialize_movie(m: dict, global_rank: int, unwatched_rank: int | None, gmap:
 def serialize_series(
     s: dict,
     global_rank: int,
-    unwatched_rank: int | None,
     gmap: dict[int, str],
     ep_titles: dict[str, str],
 ) -> dict:
+    """Catalogue public uniquement : aucun état « vu » (chargé après connexion via l'Edge Function)."""
     mid = s["id"]
     name = s.get("name") or "?"
     orig = s.get("original_name") or ""
     released = s.get("released_seasons") or []
-    watched_s = sorted(s.get("watched_seasons") or set())
-    watched_indiv = sorted([list(p) for p in (s.get("watched_indiv_eps") or set())])
-    unwatched_s = s.get("unwatched_seasons") or []
     season_scores = {str(k): v for k, v in (s.get("season_scores") or {}).items()}
 
     # Compact episode list: [season, ep, rating, votes, tconst, title]
@@ -241,14 +236,7 @@ def serialize_series(
                 t_vf,
             ])
 
-    status = "unwatched"
-    if s.get("locked"):
-        status = "locked"
-    elif s.get("partially_watched"):
-        status = "catchup"
-    elif s.get("vu"):
-        status = "watched"
-
+    gnames = unique_genres(s.get("genre_ids") or [], gmap)
     return {
         "id": mid,
         "type": "tv",
@@ -257,25 +245,17 @@ def serialize_series(
         "year": (s.get("first_air_date") or "")[:4],
         "poster": s.get("poster_path") or "",
         "overview": (s.get("overview") or "").strip(),
-        "genres": unique_genres(s.get("genre_ids") or [], gmap),
+        "genres": gnames,
         "providers": s.get("providers") or [],
         "imdb": s.get("global_imdb_rating"),
-        "imdbUnwatched": s.get("unwatched_imdb_rating"),
         "votes": s.get("imdb_votes") or 0,
         "tmdb": round(s.get("vote_average") or 0, 1),
-        "status": status,
-        "vu": bool(s.get("vu")),
-        "locked": bool(s.get("locked")),
-        "catchup": bool(s.get("partially_watched")),
-        "episodic": mid in EPISODIC_HIGHLIGHT_IDS or ("Comédie" in unique_genres(s.get("genre_ids") or [], gmap)),
+        "episodic": mid in EPISODIC_HIGHLIGHT_IDS or ("Comédie" in gnames),
+        "seasonMode": s.get("season_mode") or "tmdb_seasons",
         "releasedSeasons": released,
-        "watchedSeasons": watched_s,
-        "watchedEpisodes": watched_indiv,
-        "unwatchedSeasons": unwatched_s,
         "seasonScores": season_scores,
         "episodes": compact_eps,
         "rankAll": global_rank,
-        "rank": unwatched_rank,
         "tmdbUrl": s.get("tmdb_url"),
         "watchUrl": s.get("watch_url"),
         "imdbUrl": s.get("imdb_url"),
@@ -332,24 +312,8 @@ def main() -> None:
 
     ep_titles = enrich_episode_titles_for_shows(series_all, force_refresh=args.refresh_cache)
 
-    # Calcul des rangs "non vus" exacts
-    uw_m_rank = 0
-    movies_out = []
-    for idx, m in enumerate(movies_all, 1):
-        rk = None
-        if not m.get("vu"):
-            uw_m_rank += 1
-            rk = uw_m_rank
-        movies_out.append(serialize_movie(m, idx, rk, gmap))
-
-    uw_s_rank = 0
-    series_out = []
-    for idx, s in enumerate(series_all, 1):
-        rk = None
-        if not s.get("vu") and not s.get("partially_watched"):
-            uw_s_rank += 1
-            rk = uw_s_rank
-        series_out.append(serialize_series(s, idx, rk, gmap, ep_titles))
+    movies_out = [serialize_movie(m, idx, gmap) for idx, m in enumerate(movies_all, 1)]
+    series_out = [serialize_series(s, idx, gmap, ep_titles) for idx, s in enumerate(series_all, 1)]
 
     now_utc = datetime.datetime.now(datetime.timezone.utc).astimezone()
     payload = {
@@ -365,9 +329,8 @@ def main() -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     size_kb = out_path.stat().st_size / 1024
-    n_catchup = sum(1 for s in series_out if s["catchup"])
     print(
-        f"✅ Exporté {len(movies_out)} films + {len(series_out)} séries ({n_catchup} à rattraper) "
+        f"✅ Exporté {len(movies_out)} films + {len(series_out)} séries (catalogue public, sans « vus ») "
         f"→ {out_path} ({size_kb:.0f} Ko)",
         file=sys.stderr,
     )
