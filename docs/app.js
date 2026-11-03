@@ -619,6 +619,92 @@
     });
   }
 
+  // Défilement fluide des chips et saisons sur PC (drag-to-slide, molette souris, flèches)
+  function setupChipScroller() {
+    window.addEventListener(
+      "wheel",
+      (e) => {
+        const target = e.target.closest(".chip-scroll");
+        if (!target) return;
+        if (target.scrollWidth <= target.clientWidth) return;
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+        if (e.deltaY !== 0) {
+          e.preventDefault();
+          target.scrollLeft += e.deltaY * 0.9;
+        }
+      },
+      { passive: false }
+    );
+
+    let activeTarget = null;
+    let startX = 0;
+    let startScrollLeft = 0;
+    let hasDragged = false;
+
+    document.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      const target = e.target.closest(".chip-scroll");
+      if (!target) return;
+      if (target.scrollWidth <= target.clientWidth) return;
+
+      activeTarget = target;
+      startX = e.pageX;
+      startScrollLeft = target.scrollLeft;
+      hasDragged = false;
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!activeTarget) return;
+      const dx = e.pageX - startX;
+      if (Math.abs(dx) > 5) {
+        hasDragged = true;
+        activeTarget.classList.add("is-dragging");
+      }
+      if (hasDragged) {
+        e.preventDefault();
+        activeTarget.scrollLeft = startScrollLeft - dx;
+      }
+    });
+
+    const endDrag = () => {
+      if (!activeTarget) return;
+      activeTarget.classList.remove("is-dragging");
+      if (hasDragged) {
+        const swallowClick = (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          window.removeEventListener("click", swallowClick, true);
+        };
+        window.addEventListener("click", swallowClick, true);
+        setTimeout(() => window.removeEventListener("click", swallowClick, true), 80);
+      }
+      activeTarget = null;
+      hasDragged = false;
+    };
+
+    document.addEventListener("mouseup", endDrag);
+    document.addEventListener("mouseleave", endDrag);
+
+    document.addEventListener("click", (e) => {
+      const arrow = e.target.closest(".btn-scroll-arrow");
+      if (!arrow) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const dir = Number(arrow.dataset.scrollDir || 1);
+      const container =
+        arrow.closest(".adv-group") ||
+        arrow.closest(".sheet-section") ||
+        arrow.closest(".ep-selector-box") ||
+        (arrow.parentElement && arrow.parentElement.parentElement);
+      if (container) {
+        const row = container.querySelector(".chip-scroll");
+        if (row) {
+          row.scrollBy({ left: dir * 260, behavior: "smooth" });
+        }
+      }
+    });
+  }
+
   async function init() {
     try {
       await loadCatalog();
@@ -914,11 +1000,14 @@
     advHtml += chip("set-limit", "all", "Catalogue complet (300)", state.showAllLimit);
     advHtml += "</div></div>";
 
-    advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Sélections rapides</span></div><div class="chip-scroll">';
+    const arrowsHtml =
+      '<div class="scroll-arrows"><button type="button" class="btn-scroll-arrow" data-scroll-dir="-1" title="Défiler à gauche">‹</button><button type="button" class="btn-scroll-arrow" data-scroll-dir="1" title="Défiler à droite">›</button></div>';
+
+    advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Sélections rapides</span>' + arrowsHtml + '</div><div class="chip-scroll">';
     presets.forEach(([val, lbl]) => (advHtml += chip("set-preset", val, lbl, state.preset === val)));
     advHtml += "</div></div>";
 
-    advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Genres</span></div><div class="chip-scroll">';
+    advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Genres</span>' + arrowsHtml + '</div><div class="chip-scroll">';
     advHtml += chip("set-genre", "all", "Tous", state.genre === "all");
     sortedGenres.forEach((g) => (advHtml += chip("set-genre", g, esc(g) + " (" + genreCounts[g] + ")", state.genre === g)));
     advHtml += "</div></div>";
@@ -1257,7 +1346,8 @@
     }
 
     let html = loginHint() + '<div class="ep-selector-box">';
-    html += '<div class="adv-label-row"><span>Séries à épisodes indépendants / Sitcoms / En cours</span></div><div class="chip-scroll">';
+    html +=
+      '<div class="adv-label-row"><span>Séries à épisodes indépendants / Sitcoms / En cours</span><div class="scroll-arrows"><button type="button" class="btn-scroll-arrow" data-scroll-dir="-1" title="Défiler à gauche">‹</button><button type="button" class="btn-scroll-arrow" data-scroll-dir="1" title="Défiler à droite">›</button></div></div><div class="chip-scroll">';
     quickShows.forEach((s) => {
       const inProgress = m && statusOf(m, s) === "catchup";
       html +=
@@ -1311,6 +1401,8 @@
     html += "</div>";
 
     if ((current.releasedSeasons || []).length > 1) {
+      html +=
+        '<div class="adv-label-row" style="margin:8px 0 3px"><span>Saisons</span><div class="scroll-arrows"><button type="button" class="btn-scroll-arrow" data-scroll-dir="-1" title="Défiler à gauche">‹</button><button type="button" class="btn-scroll-arrow" data-scroll-dir="1" title="Défiler à droite">›</button></div></div>';
       html += '<div class="chip-scroll">' + chip("ep-season", "all", "Toutes saisons", state.epSeason === "all");
       current.releasedSeasons.forEach((sn) => {
         const sc = (current.seasonScores || {})[String(sn)];
@@ -1519,7 +1611,8 @@
 
     if (rel.length) {
       const op = o ? progress(o, item) : null;
-      html += '<div class="adv-label-row" style="margin:12px 0 6px"><span>Saisons — touche pour cocher / décocher</span></div>';
+      html +=
+        '<div class="adv-label-row" style="margin:12px 0 6px"><span>Saisons — touche pour cocher / décocher</span><div class="scroll-arrows"><button type="button" class="btn-scroll-arrow" data-scroll-dir="-1" title="Défiler à gauche">‹</button><button type="button" class="btn-scroll-arrow" data-scroll-dir="1" title="Défiler à droite">›</button></div></div>';
       html += '<div class="chip-scroll">';
       rel.forEach((sn) => {
         const sc = (item.seasonScores || {})[String(sn)];
@@ -1614,7 +1707,8 @@
 
     if (item.type === "tv" && item.episodes && item.episodes.length) {
       const p = m ? progress(m, item) : null;
-      html += '<div class="sheet-section"><div class="sheet-section-title"><span>Épisodes notés IMDb</span>';
+      html +=
+        '<div class="sheet-section"><div class="sheet-section-title"><span>Épisodes notés IMDb</span><div class="scroll-arrows"><button type="button" class="btn-scroll-arrow" data-scroll-dir="-1" title="Défiler à gauche">‹</button><button type="button" class="btn-scroll-arrow" data-scroll-dir="1" title="Défiler à droite">›</button></div>';
       html += '<button type="button" class="btn-reset" data-action="jump-episodes" data-id="' + item.id + '">Ouvrir dans 🎯 Épisodes →</button></div>';
       html += '<div class="chip-scroll">' + chip("modal-season", "all", "Toutes (" + item.releasedSeasons.length + ")", state.modalSeasonFilter === "all");
       (item.releasedSeasons || []).forEach((sn) => {
@@ -1735,6 +1829,7 @@
   elBtnRandom.addEventListener("click", pickRandom);
   $("btnReload").addEventListener("click", reloadAll);
   setupPullToRefresh();
+  setupChipScroller();
 
   elBtnAccount.addEventListener("click", () => {
     if (HH.session) openModal("__account__", false);
