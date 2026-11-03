@@ -28,7 +28,8 @@
     users: [], // {email, name, movies:Set, locked:Set, eps:Map<tvId, [s,e,rating][]>}
     loading: false,
     loadedAt: 0,
-    pending: 0
+    pending: 0,
+    recent: [] // écritures récentes {key, p, at}
   };
   let writeQueue = Promise.resolve();
   const progCache = new Map();
@@ -299,9 +300,16 @@
     toastTimer = setTimeout(() => (el.style.display = "none"), isError ? 4500 : 2200);
   }
 
+  // Ligne grisée sous le titre FR : titre anglais · titre original (alphabet latin)
+  function altTitles(item) {
+    return [item.en, item.orig].filter(Boolean).join(" · ");
+  }
+
   function prepareItem(item) {
     item._key = item.type + ":" + item.id;
-    item._search = norm([item.title, item.orig, item.year, (item.genres || []).join(" "), item.overview].join(" "));
+    item._search = norm(
+      [item.title, item.en, item.orig, item.year, (item.genres || []).join(" "), item.overview].join(" ")
+    );
     if (item.type === "tv") {
       item._bySeason = new Map();
       (item.episodes || []).forEach((ep) => {
@@ -357,6 +365,7 @@
       const res = await callFn("GET");
       HH.meEmail = String(res.me || "").toLowerCase();
       HH.users = (res.users || []).map(normalizeUser);
+      if (HH.pending > 0 || HH.recent.length) reapplyRecent();
       HH.loadedAt = Date.now();
       progCache.clear();
       saveCache();
@@ -459,12 +468,14 @@
     }
 
     applyLocal(u, item, { ...p, id: item.id });
+    HH.recent.push({ key: item._key, p: { ...p, id: item.id }, at: Date.now() });
     progCache.clear();
     saveCache();
     renderAll();
     if (state.modalKey) renderModalContent();
 
     HH.pending++;
+    renderAccountButton();
     writeQueue = writeQueue
       .then(() => callFn("POST", payload))
       .then((res) => {
@@ -472,28 +483,122 @@
         if (HH.pending === 0 && res && res.user) {
           const fresh = normalizeUser(res.user);
           HH.users = HH.users.map((x) => (x.email === fresh.email ? fresh : x));
+          reapplyRecent();
           progCache.clear();
           saveCache();
           renderAll();
           if (state.modalKey) renderModalContent();
+        } else {
+          renderAccountButton();
         }
       })
       .catch((err) => {
         HH.pending--;
+        HH.recent = HH.recent.filter((r) => r.key !== item._key);
         toast("⚠️ Échec de l'enregistrement TMDB : " + err.message, true);
         if (HH.pending === 0) refreshState(true);
       });
   }
 
+  // TMDB met ses listes « rated » en cache quelques minutes : on ré-applique nos écritures
+  // récentes par-dessus tout état venant du serveur pour éviter que le « vu » ne saute.
+  const RECENT_TTL = 10 * 60 * 1000;
+  function reapplyRecent() {
+    const now = Date.now();
+    HH.recent = HH.recent.filter((r) => now - r.at < RECENT_TTL);
+    const u = me();
+    if (!u) return;
+    HH.recent.forEach((r) => {
+      const it = ITEM_MAP.get(r.key);
+      if (it) applyLocal(u, it, r.p);
+    });
+  }
+
   /* ---------------- Init ---------------- */
+
+  async function loadCatalog() {
+    const res = await fetch("./data.json?t=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const fresh = await res.json();
+    const prevGen = DATA.generatedAt;
+    DATA = fresh;
+    ITEM_MAP.clear();
+    progCache.clear();
+    (DATA.movies || []).forEach(prepareItem);
+    (DATA.series || []).forEach(prepareItem);
+    const dateTxt = formatGenDate(DATA.generatedAt);
+    elHeaderSub.textContent =
+      "Netflix · Prime · Apple TV (" + (DATA.region || "BG") + ")" + (dateTxt ? " · màj " + dateTxt : "");
+    return prevGen !== DATA.generatedAt;
+  }
+
+  let reloading = false;
+  async function reloadAll() {
+    if (reloading) return;
+    reloading = true;
+    document.body.classList.add("is-reloading");
+    try {
+      const changed = await loadCatalog();
+      if (HH.session) await refreshState(true);
+      renderAll();
+      if (state.modalKey) renderModalContent();
+      toast(changed ? "✅ Catalogue mis à jour" : "✅ À jour" + (HH.session ? " (vus resynchronisés)" : ""));
+    } catch (err) {
+      toast("⚠️ Rechargement impossible : " + err.message, true);
+    } finally {
+      reloading = false;
+      document.body.classList.remove("is-reloading");
+    }
+  }
+
+  // Pull-to-refresh mobile : tirer vers le bas quand on est tout en haut de la page
+  function setupPullToRefresh() {
+    const ind = document.createElement("div");
+    ind.className = "ptr-indicator";
+    ind.textContent = "↓";
+    document.body.appendChild(ind);
+    const THRESHOLD = 70;
+    let startY = null;
+    let dist = 0;
+
+    window.addEventListener(
+      "touchstart",
+      (e) => {
+        if (window.scrollY > 0 || document.body.classList.contains("modal-open") || reloading) return;
+        startY = e.touches[0].clientY;
+        dist = 0;
+      },
+      { passive: true }
+    );
+    window.addEventListener(
+      "touchmove",
+      (e) => {
+        if (startY === null) return;
+        dist = e.touches[0].clientY - startY;
+        if (dist <= 0 || window.scrollY > 0) {
+          ind.style.opacity = "0";
+          return;
+        }
+        const d = Math.min(dist, 120);
+        ind.style.opacity = String(Math.min(1, d / THRESHOLD));
+        ind.style.transform = "translate(-50%, " + (d * 0.6) + "px) rotate(" + d * 2 + "deg)";
+        ind.textContent = d >= THRESHOLD ? "↻" : "↓";
+      },
+      { passive: true }
+    );
+    window.addEventListener("touchend", () => {
+      if (startY === null) return;
+      const trigger = dist >= THRESHOLD && window.scrollY <= 0;
+      startY = null;
+      ind.style.transform = "translate(-50%, 0)";
+      ind.style.opacity = "0";
+      if (trigger) reloadAll();
+    });
+  }
 
   async function init() {
     try {
-      const res = await fetch("./data.json", { cache: "no-cache" });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      DATA = await res.json();
-      (DATA.movies || []).forEach(prepareItem);
-      (DATA.series || []).forEach(prepareItem);
+      await loadCatalog();
 
       const preferredIds = [60625, 42009, 105248, 2316, 86831];
       let defSeries = null;
@@ -503,10 +608,6 @@
       }
       if (!defSeries) defSeries = DATA.series.find((s) => s.episodes && s.episodes.length > 0);
       if (defSeries) state.epSeriesId = defSeries.id;
-
-      const dateTxt = formatGenDate(DATA.generatedAt);
-      elHeaderSub.textContent =
-        "Netflix · Prime · Apple TV (" + (DATA.region || "BG") + ")" + (dateTxt ? " · màj " + dateTxt : "");
     } catch (err) {
       elMainContent.innerHTML =
         '<div class="empty-state"><div class="emoji">⚠️</div><div>Impossible de charger <code>data.json</code> (' +
@@ -885,7 +986,7 @@
       '</span><span class="card-year">' +
       esc(item.year) +
       "</span></div>" +
-      (item.orig ? '<div class="card-orig">' + esc(item.orig) + "</div>" : "") +
+      (altTitles(item) ? '<div class="card-orig">' + esc(altTitles(item)) + "</div>" : "") +
       '<div class="scores-row"><span class="badge-imdb">★ ' +
       fmt1(displayImdb) +
       (item.votes ? ' <span class="votes">(' + fmtVotes(item.votes) + ")</span>" : "") +
@@ -1429,7 +1530,7 @@
     html += '<div class="sheet-top"><div class="sheet-poster">' + posterHtml + "</div>";
     html += '<button type="button" class="sheet-close" data-action="close-modal" aria-label="Fermer">✕</button>';
     html += '<div class="sheet-info"><div class="sheet-title">' + esc(item.title) + "</div>";
-    if (item.orig) html += '<div class="card-orig" style="white-space:normal">' + esc(item.orig) + "</div>";
+    if (altTitles(item)) html += '<div class="card-orig" style="white-space:normal">' + esc(altTitles(item)) + "</div>";
     html +=
       '<div class="scores-row" style="margin-top:2px"><span class="badge-imdb">★ ' +
       fmt1(item.imdb) +
@@ -1582,6 +1683,8 @@
   });
 
   elBtnRandom.addEventListener("click", pickRandom);
+  $("btnReload").addEventListener("click", reloadAll);
+  setupPullToRefresh();
 
   elBtnAccount.addEventListener("click", () => {
     if (HH.session) openModal("__account__", false);

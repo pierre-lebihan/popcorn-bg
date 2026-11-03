@@ -519,10 +519,12 @@ Deno.serve(async (req) => {
     if (payload.action === "set") {
       if (me.sessionId) {
         await applySetTmdb(payload as SetPayload, me.sessionId);
-      } else {
-        await applySetDbOnly(payload as SetPayload, me);
       }
-      const state = await getUserState(me);
+      // Les listes « rated » de TMDB sont mises en cache côté TMDB quelques secondes/minutes :
+      // relire TMDB juste après l'écriture renverrait l'ancien état (le « vu » sauterait).
+      // On applique donc la même modification sur l'état en base et on renvoie celui-ci.
+      await applySetDbOnly(payload as SetPayload, me);
+      const state = await getDbUserState(me);
       return json(req, { ok: true, user: state });
     }
 

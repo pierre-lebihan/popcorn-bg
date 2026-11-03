@@ -184,14 +184,119 @@ def unique_genres(gids: list[int], gmap: dict[int, str]) -> list[str]:
     return out
 
 
-def serialize_movie(m: dict, global_rank: int, gmap: dict[int, str]) -> dict:
+# ---------- Titres anglais + titres originaux en alphabet latin ----------
+
+TITLES_CACHE_FILE = CACHE_DIR / "tmdb_titles.json"
+LANG_COUNTRY = {
+    # Pas de langues indiennes : les titres alternatifs « IN » sont surtout des titres de doublage / de travail
+    "ja": "JP", "ko": "KR", "zh": "CN", "cn": "CN", "ru": "RU", "th": "TH", "uk": "UA", "el": "GR",
+    "he": "IL", "ar": "EG", "fa": "IR", "bg": "BG", "sr": "RS",
+}
+
+
+def is_latin(s: str) -> bool:
+    has_alpha = False
+    for c in s or "":
+        if c.isalpha():
+            has_alpha = True
+            if not (ord(c) < 0x0250 or 0x1E00 <= ord(c) <= 0x1EFF):
+                return False
+    return has_alpha
+
+
+def pick_latin_original(orig: str, lang: str, en: str, alts: list[dict]) -> str:
+    """Titre original s'il est déjà en alphabet latin, sinon sa romanisation (romaji, etc.) si TMDB la connaît."""
+    if is_latin(orig):
+        return orig
+    country = LANG_COUNTRY.get(lang, "")
+    for a in alts:
+        t = (a.get("title") or "").strip()
+        tp = (a.get("type") or "").lower()
+        if country:
+            ok_countries = {country, "TW", "HK"} if lang in ("zh", "cn") else {country}
+            if a.get("iso_3166_1") not in ok_countries:
+                continue
+        if is_latin(t) and any(k in tp for k in ("romaji", "roman", "hepburn", "translit")):
+            return t
+    if country:
+        for a in alts:
+            t = (a.get("title") or "").strip()
+            # Évite les sigles (ZNMD, SNK…) et les titres anglais
+            if (
+                is_latin(t)
+                and a.get("iso_3166_1") == country
+                and t.lower() != (en or "").lower()
+                and not (t.isupper() and " " not in t)
+                and not (a.get("type") or "").lower().startswith("initial")
+            ):
+                return t
+    return ""
+
+
+def load_titles(items: list[tuple[str, int]], force_refresh: bool = False) -> dict[str, dict]:
+    cache: dict[str, dict] = {}
+    if not force_refresh and TITLES_CACHE_FILE.exists():
+        try:
+            raw = json.loads(TITLES_CACHE_FILE.read_text(encoding="utf-8"))
+            now = time.time()
+            cache = {k: v for k, v in raw.items() if now - v.get("ts", 0) < CACHE_TTL_SECONDS * 30}
+        except Exception:
+            cache = {}
+
+    todo = [(mt, mid) for mt, mid in items if f"{mt}:{mid}" not in cache]
+    if todo:
+        print(f"  → Récupération des titres anglais / originaux latins ({len(todo)} titres)...", file=sys.stderr)
+
+        def fetch_one(pair: tuple[str, int]) -> tuple[str, dict | None]:
+            mt, mid = pair
+            try:
+                d = request_get(
+                    f"{BASE}/{mt}/{mid}",
+                    params={"api_key": KEY, "language": "en-US", "append_to_response": "alternative_titles"},
+                ).json()
+            except Exception:
+                return f"{mt}:{mid}", None
+            en = d.get("title") or d.get("name") or ""
+            orig = d.get("original_title") or d.get("original_name") or ""
+            alt_block = d.get("alternative_titles") or {}
+            alts = alt_block.get("titles") or alt_block.get("results") or []
+            latin = pick_latin_original(orig, d.get("original_language") or "", en, alts)
+            return f"{mt}:{mid}", {"ts": time.time(), "en": en, "origLatin": latin}
+
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            for ck, val in pool.map(fetch_one, todo):
+                if val:
+                    cache[ck] = val
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = TITLES_CACHE_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(TITLES_CACHE_FILE)
+    return cache
+
+
+def title_fields(title: str, raw_orig: str, info: dict | None) -> dict:
+    """en = titre anglais (si différent du titre FR) ; orig = original en alphabet latin (si différent des deux)."""
+    info = info or {}
+    en = (info.get("en") or "").strip()
+    orig = (info.get("origLatin") or "").strip()
+    if not info and is_latin(raw_orig):
+        orig = raw_orig
+    seen = {title.strip().lower()}
+    out_en = en if en and en.lower() not in seen else ""
+    if out_en:
+        seen.add(out_en.lower())
+    out_orig = orig if orig and orig.lower() not in seen else ""
+    return {"en": out_en, "orig": out_orig}
+
+
+def serialize_movie(m: dict, global_rank: int, gmap: dict[int, str], titles: dict[str, dict]) -> dict:
     title = m.get("title") or "?"
     orig = m.get("original_title") or ""
     return {
         "id": m["id"],
         "type": "movie",
         "title": title,
-        "orig": orig if orig and orig.lower() != title.lower() else "",
+        **title_fields(title, orig, titles.get(f"movie:{m['id']}")),
         "year": (m.get("release_date") or "")[:4],
         "poster": m.get("poster_path") or "",
         "overview": (m.get("overview") or "").strip(),
@@ -212,6 +317,7 @@ def serialize_series(
     global_rank: int,
     gmap: dict[int, str],
     ep_titles: dict[str, str],
+    titles: dict[str, dict],
 ) -> dict:
     """Catalogue public uniquement : aucun état « vu » (chargé après connexion via l'Edge Function)."""
     mid = s["id"]
@@ -241,7 +347,7 @@ def serialize_series(
         "id": mid,
         "type": "tv",
         "title": name,
-        "orig": orig if orig and orig.lower() != name.lower() else "",
+        **title_fields(name, orig, titles.get(f"tv:{mid}")),
         "year": (s.get("first_air_date") or "")[:4],
         "poster": s.get("poster_path") or "",
         "overview": (s.get("overview") or "").strip(),
@@ -311,9 +417,13 @@ def main() -> None:
     assert isinstance(series_all, list)
 
     ep_titles = enrich_episode_titles_for_shows(series_all, force_refresh=args.refresh_cache)
+    titles = load_titles(
+        [("movie", m["id"]) for m in movies_all] + [("tv", s["id"]) for s in series_all],
+        force_refresh=args.refresh_cache,
+    )
 
-    movies_out = [serialize_movie(m, idx, gmap) for idx, m in enumerate(movies_all, 1)]
-    series_out = [serialize_series(s, idx, gmap, ep_titles) for idx, s in enumerate(series_all, 1)]
+    movies_out = [serialize_movie(m, idx, gmap, titles) for idx, m in enumerate(movies_all, 1)]
+    series_out = [serialize_series(s, idx, gmap, ep_titles, titles) for idx, s in enumerate(series_all, 1)]
 
     now_utc = datetime.datetime.now(datetime.timezone.utc).astimezone()
     payload = {

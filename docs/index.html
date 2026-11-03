@@ -1130,6 +1130,55 @@
       color: #a7f3d0;
     }
 
+    .btn-reload {
+      appearance: none;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-elev);
+      color: var(--text);
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      font-size: 17px;
+      line-height: 1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    body.is-reloading .btn-reload { animation: spin 0.8s linear infinite; }
+
+    .ptr-indicator {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translate(-50%, 0);
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      background: var(--bg-elev);
+      border: 1px solid var(--border-strong);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 19px;
+      opacity: 0;
+      z-index: 200;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    body.is-reloading .ptr-indicator {
+      opacity: 1 !important;
+      transform: translate(-50%, 30px) !important;
+      animation: spin 0.8s linear infinite;
+    }
+    body.is-reloading .ptr-indicator::after { content: ""; }
+
     @media (max-width: 380px) {
       .hide-xs { display: none; }
     }
@@ -1306,6 +1355,7 @@
           <button type="button" class="btn-random" id="btnRandom" title="Tirer un titre au sort parmi les filtres actifs">
             🎲<span class="hide-xs"> Au hasard</span>
           </button>
+          <button type="button" class="btn-reload" id="btnReload" title="Recharger le catalogue et resynchroniser les vus" aria-label="Recharger">↻</button>
           <button type="button" class="btn-account" id="btnAccount">🔑 Connexion</button>
         </div>
       </div>
