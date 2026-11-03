@@ -371,7 +371,7 @@ def serialize_series(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Exporte les données statiques JSON pour GitHub Pages")
     parser.add_argument("--out", type=str, default=str(ROOT_DIR / "docs" / "data.json"), help="Fichier JSON de sortie")
-    parser.add_argument("--limit", type=int, default=300, help="Nombre max de films / séries à exporter (défaut: 300)")
+    parser.add_argument("--limit", type=int, default=500, help="Nombre max de films / séries à exporter (défaut: 500)")
     parser.add_argument("--min-imdb-votes", type=int, default=DEFAULT_MIN_IMDB_VOTES)
     parser.add_argument("--refresh-cache", action="store_true")
     args = parser.parse_args()

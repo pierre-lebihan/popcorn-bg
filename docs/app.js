@@ -995,9 +995,11 @@
       ["year", "📅 Plus récents"],
       ["tmdb", "💙 Note TMDB"]
     ].forEach(([val, lbl]) => (advHtml += chip("set-sort", val, lbl, state.sort === val)));
+    const totalCount = data ? (state.tab === "movies" ? data.movies.length : data.series.length) : 0;
+    const allLabel = totalCount ? "Catalogue complet (" + totalCount + ")" : "Catalogue complet";
     advHtml += '<span class="chip-sep"></span>';
     advHtml += chip("set-limit", "top50", "Top 50", !state.showAllLimit);
-    advHtml += chip("set-limit", "all", "Catalogue complet (300)", state.showAllLimit);
+    advHtml += chip("set-limit", "all", allLabel, state.showAllLimit);
     advHtml += "</div></div>";
 
     const arrowsHtml =
@@ -1140,7 +1142,7 @@
   function renderMoviesOrSeries() {
     const list = getFilteredList(state.tab);
     const isSearching = state.q.trim().length > 0;
-    const limit = state.showAllLimit || isSearching ? 300 : 50;
+    const limit = state.showAllLimit || isSearching ? list.length : 50;
     const visible = list.slice(0, limit);
 
     let html = loginHint();

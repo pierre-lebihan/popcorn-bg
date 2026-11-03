@@ -60,8 +60,8 @@ EPISODE_MARKER_RATING = 8.5
 IMDB_SEASON_CACHE_SCHEMA = 2
 
 DISCOVER_CONFIG = {
-    "movie": {"min_tmdb_votes": 100, "pages": 22},
-    "tv": {"min_tmdb_votes": 50, "pages": 25},
+    "movie": {"min_tmdb_votes": 100, "pages": 25, "vote_count_pages": 8},
+    "tv": {"min_tmdb_votes": 50, "pages": 35, "vote_count_pages": 8},
 }
 
 SHORT_PROVIDER_NAMES = {
@@ -561,45 +561,40 @@ def fetch_discover(
     provider_ids: str,
     pages: int,
     min_tmdb_votes: int,
+    vote_count_pages: int = 8,
 ) -> list[dict]:
-    def fetch_page(p: int) -> list[dict]:
-        r = request_get(
-            f"{BASE}/discover/{mt}",
-            params={
-                "api_key": KEY,
-                "language": "fr-FR",
-                "watch_region": watch_region,
-                "with_watch_providers": provider_ids,
-                "with_watch_monetization_types": "flatrate",
-                "sort_by": "vote_average.desc",
-                "vote_count.gte": min_tmdb_votes,
-                "page": p,
-            },
-        )
-        payload = r.json()
-        if payload.get("status_message"):
-            raise RuntimeError(payload.get("status_message", str(payload)))
-        return payload.get("results", [])
-
-    first = request_get(
-        f"{BASE}/discover/{mt}",
-        params={
+    def fetch_page(sort_by: str, p: int, min_v: int) -> list[dict]:
+        params = {
             "api_key": KEY,
             "language": "fr-FR",
             "watch_region": watch_region,
             "with_watch_providers": provider_ids,
             "with_watch_monetization_types": "flatrate",
-            "sort_by": "vote_average.desc",
-            "vote_count.gte": min_tmdb_votes,
-            "page": 1,
-        },
-    ).json()
-    max_page = min(pages, first.get("total_pages", 1))
-    out = list(first.get("results", []))
-    if max_page > 1:
-        with ThreadPoolExecutor(max_workers=8) as pool:
-            for page_items in pool.map(fetch_page, range(2, max_page + 1)):
-                out.extend(page_items)
+            "sort_by": sort_by,
+            "page": p,
+        }
+        if min_v > 0:
+            params["vote_count.gte"] = min_v
+        try:
+            r = request_get(f"{BASE}/discover/{mt}", params=params)
+            payload = r.json()
+            if payload.get("status_message"):
+                raise RuntimeError(payload.get("status_message", str(payload)))
+            return payload.get("results", [])
+        except Exception as e:
+            print(f"⚠️  Erreur Discover {mt} ({sort_by} p{p}) : {e}", file=sys.stderr)
+            return []
+
+    tasks: list[tuple[str, int, int]] = []
+    for p in range(1, pages + 1):
+        tasks.append(("vote_average.desc", p, min_tmdb_votes))
+    for p in range(1, vote_count_pages + 1):
+        tasks.append(("vote_count.desc", p, 0))
+
+    out: list[dict] = []
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        for page_items in pool.map(lambda t: fetch_page(*t), tasks):
+            out.extend(page_items)
 
     seen: set[int] = set()
     unique: list[dict] = []
@@ -704,6 +699,7 @@ def build_list(
         provider_ids,
         pages=cfg["pages"],
         min_tmdb_votes=cfg["min_tmdb_votes"],
+        vote_count_pages=cfg.get("vote_count_pages", 8),
     )
     rated_ids: set[int] = set()
     rated_tv_episodes: dict[int, dict[tuple[int, int], float]] = {}
