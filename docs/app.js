@@ -190,6 +190,13 @@
   function unwatchedImdb(user, series) {
     if (!user) return series.imdb || 0;
     const p = progress(user, series);
+    if (series.episodes && series.episodes.length) {
+      const unwEps = series.episodes.filter((ep) => !isEpWatched(user, series, ep[0], ep[1]));
+      if (unwEps.length) {
+        const sum = unwEps.reduce((acc, ep) => acc + (ep[2] || 0), 0);
+        return Math.round((sum / unwEps.length) * 10) / 10;
+      }
+    }
     const scores = (series.releasedSeasons || [])
       .filter((s) => !p.ws.has(s))
       .map((s) => (series.seasonScores || {})[String(s)])
@@ -753,12 +760,19 @@
     });
 
     const m = me();
-    const scoreOf = (x) => (tab === "series" && status === "catchup" && m ? unwatchedImdb(m, x) : x.imdb || 0);
+    const o = other();
+    const targetUser = (status === "todoOtherOnly" && o) ? o : m;
+    const scoreOf = (x) => {
+      if (tab === "series" && targetUser && statusOf(targetUser, x) === "catchup") {
+        return unwatchedImdb(targetUser, x);
+      }
+      return x.imdb || 0;
+    };
 
     filtered.sort((a, b) => {
-      if (state.sort === "votes") return (b.votes || 0) - (a.votes || 0) || (b.imdb || 0) - (a.imdb || 0);
-      if (state.sort === "year") return Number(b.year || 0) - Number(a.year || 0) || (b.imdb || 0) - (a.imdb || 0);
-      if (state.sort === "tmdb") return (b.tmdb || 0) - (a.tmdb || 0) || (b.imdb || 0) - (a.imdb || 0);
+      if (state.sort === "votes") return (b.votes || 0) - (a.votes || 0) || (scoreOf(b) - scoreOf(a));
+      if (state.sort === "year") return Number(b.year || 0) - Number(a.year || 0) || (scoreOf(b) - scoreOf(a));
+      if (state.sort === "tmdb") return (b.tmdb || 0) - (a.tmdb || 0) || (scoreOf(b) - scoreOf(a));
       return scoreOf(b) - scoreOf(a) || (b.votes || 0) - (a.votes || 0);
     });
 
@@ -950,8 +964,11 @@
     }
 
     const isMuted = m && (myStatus === "watched" || myStatus === "locked") && state.status === "all";
-    const showUnw = item.type === "tv" && m && myStatus === "catchup";
-    const displayImdb = showUnw ? unwatchedImdb(m, item) : item.imdb;
+    const targetUser = (state.status === "todoOtherOnly" && other()) ? other() : m;
+    const targetStatus = statusOf(targetUser, item);
+    const showUnw = item.type === "tv" && targetUser && targetStatus === "catchup";
+    const displayImdb = showUnw ? unwatchedImdb(targetUser, item) : item.imdb;
+    const hasDiff = showUnw && Math.abs(displayImdb - (item.imdb || 0)) > 0.05;
 
     const provPills = (item.providers || [])
       .map((p) => '<span class="prov-pill ' + provClass(p) + '">' + esc(p) + "</span>")
@@ -1004,11 +1021,12 @@
       esc(item.year) +
       "</span></div>" +
       (altTitles(item) ? '<div class="card-orig">' + esc(altTitles(item)) + "</div>" : "") +
-      '<div class="scores-row"><span class="badge-imdb">★ ' +
+      '<div class="scores-row"><span class="badge-imdb">' +
+      (hasDiff ? "★ Restant " : "★ ") +
       fmt1(displayImdb) +
       (item.votes ? ' <span class="votes">(' + fmtVotes(item.votes) + ")</span>" : "") +
       "</span>" +
-      (showUnw && displayImdb !== item.imdb ? '<span class="badge-tmdb">Global ' + fmt1(item.imdb) + "</span>" : "") +
+      (hasDiff ? '<span class="badge-tmdb">Global ' + fmt1(item.imdb) + "</span>" : "") +
       (item.tmdb ? '<span class="badge-tmdb">TMDB ' + fmt1(item.tmdb) + "</span>" : "") +
       "</div>" +
       '<div class="meta-tags">' +
@@ -1556,12 +1574,19 @@
     html += '<button type="button" class="sheet-close" data-action="close-modal" aria-label="Fermer">✕</button>';
     html += '<div class="sheet-info"><div class="sheet-title">' + esc(item.title) + "</div>";
     if (altTitles(item)) html += '<div class="card-orig" style="white-space:normal">' + esc(altTitles(item)) + "</div>";
+
+    const targetUser = (state.status === "todoOtherOnly" && other()) ? other() : m;
+    const isCatchup = item.type === "tv" && targetUser && statusOf(targetUser, item) === "catchup";
+    const remScore = isCatchup ? unwatchedImdb(targetUser, item) : null;
+    const hasDiff = remScore !== null && Math.abs(remScore - (item.imdb || 0)) > 0.05;
+
     html +=
-      '<div class="scores-row" style="margin-top:2px"><span class="badge-imdb">★ ' +
-      fmt1(item.imdb) +
+      '<div class="scores-row" style="margin-top:2px"><span class="badge-imdb">' +
+      (hasDiff ? "★ Restant " + fmt1(remScore) : "★ " + fmt1(item.imdb)) +
       ' <span class="votes">(' +
       fmtVotes(item.votes) +
       ")</span></span>" +
+      (hasDiff ? '<span class="badge-tmdb">Global IMDb ' + fmt1(item.imdb) + "</span>" : "") +
       (item.tmdb ? '<span class="badge-tmdb">TMDB ' + fmt1(item.tmdb) + "</span>" : "") +
       '<span class="card-year">' +
       esc(item.year) +
