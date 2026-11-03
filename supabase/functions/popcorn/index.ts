@@ -112,6 +112,15 @@ async function ensureTmdbApiKey(): Promise<string> {
   return cachedTmdbApiKey;
 }
 
+const EMAIL_ALIASES: Record<string, string> = {
+  "l.bihan.pierre@gmail.com": "l.bihan.pierre@gmail.com",
+  "le.bihan.pierre@gmail.com": "l.bihan.pierre@gmail.com",
+  "lbihanpierre@gmail.com": "l.bihan.pierre@gmail.com",
+  "naustra246@gmail.com": "l.bihan.pierre@gmail.com",
+  "krstevska.vilma95@gmail.com": "krstevska.vilma95@gmail.com",
+  "krstevskavilma95@gmail.com": "krstevska.vilma95@gmail.com",
+};
+
 async function authenticate(req: Request, members: HouseholdMember[]): Promise<HouseholdMember> {
   const auth = req.headers.get("Authorization") ?? "";
   const token = auth.replace(/^Bearer\s+/i, "").trim();
@@ -119,9 +128,10 @@ async function authenticate(req: Request, members: HouseholdMember[]): Promise<H
 
   const { data, error } = await adminSb.auth.getUser(token);
   if (error || !data?.user) throw new HttpError(401, "Session invalide ou expirée");
-  const email = String(data.user.email ?? "").toLowerCase();
-  const me = members.find((u) => u.email === email);
-  if (!me) throw new HttpError(403, `Compte ${email} non autorisé`);
+  const rawEmail = String(data.user.email ?? "").trim().toLowerCase();
+  const canonicalEmail = EMAIL_ALIASES[rawEmail] ?? rawEmail;
+  const me = members.find((u) => u.email === canonicalEmail);
+  if (!me) throw new HttpError(403, `Compte ${rawEmail} non autorisé`);
   return me;
 }
 

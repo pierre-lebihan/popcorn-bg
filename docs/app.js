@@ -70,10 +70,19 @@
     }
   }
 
+  function canonEmail(email) {
+    const e = String(email || "").trim().toLowerCase();
+    if (e === "naustra246@gmail.com" || e === "le.bihan.pierre@gmail.com" || e === "lbihanpierre@gmail.com") {
+      return "l.bihan.pierre@gmail.com";
+    }
+    if (e === "krstevskavilma95@gmail.com") return "krstevska.vilma95@gmail.com";
+    return e;
+  }
+
   function loadCache(email) {
     try {
       const raw = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-      if (raw && raw.me === String(email || "").toLowerCase() && Array.isArray(raw.users)) {
+      if (raw && raw.me === canonEmail(email) && Array.isArray(raw.users)) {
         HH.meEmail = raw.me;
         HH.users = raw.users.map(normalizeUser);
         progCache.clear();

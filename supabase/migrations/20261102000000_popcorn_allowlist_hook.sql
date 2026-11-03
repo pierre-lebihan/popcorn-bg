@@ -40,22 +40,44 @@ values
   ('krstevska.vilma95@gmail.com', 'Vilma')
 on conflict (email) do update set name = excluded.name;
 
--- Trigger BEFORE INSERT sur auth.users : bloque toute inscription ou connexion OAuth hors liste blanche
+-- Trigger sur auth.users & auth.identities : bloque toute inscription ou connexion OAuth hors liste blanche
 create or replace function public.enforce_popcorn_auth_allowlist()
 returns trigger
 language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  u_email text := lower(trim(coalesce(
+    nullif(new.email, ''),
+    nullif(new.raw_user_meta_data->>'email', ''),
+    ''
+  )));
 begin
-  if lower(coalesce(new.email, '')) not in ('l.bihan.pierre@gmail.com', 'krstevska.vilma95@gmail.com') then
-    raise exception 'Inscriptions fermées : seuls Pierre et Vilma sont autorisés.';
+  if coalesce(new.is_anonymous, false) then
+    raise exception 'Inscriptions anonymes désactivées.';
   end if;
-  return new;
+
+  if u_email = '' then
+    return new;
+  end if;
+
+  if u_email in (
+    'l.bihan.pierre@gmail.com',
+    'le.bihan.pierre@gmail.com',
+    'lbihanpierre@gmail.com',
+    'naustra246@gmail.com',
+    'krstevska.vilma95@gmail.com',
+    'krstevskavilma95@gmail.com'
+  ) then
+    return new;
+  end if;
+
+  raise exception 'Inscriptions fermées (%) : seuls Pierre et Vilma sont autorisés.', u_email;
 end;
 $$;
 
-revoke all on function public.enforce_popcorn_auth_allowlist() from public, anon, authenticated;
+grant execute on function public.enforce_popcorn_auth_allowlist() to supabase_auth_admin, postgres, service_role;
 
 do $$
 begin
@@ -67,29 +89,55 @@ begin
       for each row
       execute function public.enforce_popcorn_auth_allowlist();
   end if;
+
+  if not exists (
+    select 1 from pg_trigger where tgname = 'trg_popcorn_auth_allowlist_upd'
+  ) then
+    create trigger trg_popcorn_auth_allowlist_upd
+      before update of email, raw_user_meta_data, is_anonymous on auth.users
+      for each row
+      execute function public.enforce_popcorn_auth_allowlist();
+  end if;
 end $$;
 
--- Hook optionnel Before User Created
-create or replace function public.hook_popcorn_allowlist(event jsonb)
-returns jsonb
+create or replace function public.enforce_popcorn_identity_allowlist()
+returns trigger
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $$
 declare
-  user_email text := lower(coalesce(event->'user'->>'email', ''));
+  u_email text := lower(trim(coalesce(new.identity_data->>'email', '')));
 begin
-  if user_email in ('l.bihan.pierre@gmail.com', 'krstevska.vilma95@gmail.com') then
-    return '{}'::jsonb;
+  if u_email = '' then
+    return new;
   end if;
 
-  return jsonb_build_object(
-    'error', jsonb_build_object(
-      'http_code', 403,
-      'message', 'Inscriptions fermées : application privée réservée à Pierre & Vilma.'
-    )
-  );
+  if u_email in (
+    'l.bihan.pierre@gmail.com',
+    'le.bihan.pierre@gmail.com',
+    'lbihanpierre@gmail.com',
+    'naustra246@gmail.com',
+    'krstevska.vilma95@gmail.com',
+    'krstevskavilma95@gmail.com'
+  ) then
+    return new;
+  end if;
+
+  raise exception 'Inscriptions fermées (%) : seuls Pierre et Vilma sont autorisés.', u_email;
 end;
 $$;
 
-grant execute on function public.hook_popcorn_allowlist(jsonb) to supabase_auth_admin;
+grant execute on function public.enforce_popcorn_identity_allowlist() to supabase_auth_admin, postgres, service_role;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_trigger where tgname = 'trg_popcorn_identity_allowlist'
+  ) then
+    create trigger trg_popcorn_identity_allowlist
+      before insert or update on auth.identities
+      for each row
+      execute function public.enforce_popcorn_identity_allowlist();
+  end if;
+end $$;
