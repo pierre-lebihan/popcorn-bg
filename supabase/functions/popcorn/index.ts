@@ -199,7 +199,7 @@ async function fetchAllPages(path: string, sessionId: string): Promise<any[]> {
 async function getDbUserState(u: HouseholdMember) {
   const { data } = await adminSb
     .from("popcorn_user_state")
-    .select("movies, locked_tv, episodes")
+    .select("movies, locked_tv, episodes, hidden_movies")
     .eq("email", u.email)
     .maybeSingle();
 
@@ -208,6 +208,7 @@ async function getDbUserState(u: HouseholdMember) {
     name: u.name,
     tmdbLinked: Boolean(u.sessionId),
     movies: (data?.movies ?? []) as number[],
+    hiddenMovies: (data?.hidden_movies ?? []) as number[],
     lockedTv: (data?.locked_tv ?? []) as number[],
     episodes: (data?.episodes ?? {}) as Record<string, [number, number, number][]>,
   };
@@ -254,7 +255,12 @@ async function getUserState(u: HouseholdMember) {
     episodes: eps,
   };
   await saveDbUserState(u, res);
-  return res;
+  const { data: hid } = await adminSb
+    .from("popcorn_user_state")
+    .select("hidden_movies")
+    .eq("email", u.email)
+    .maybeSingle();
+  return { ...res, hiddenMovies: (hid?.hidden_movies ?? []) as number[] };
 }
 
 const rate = (path: string, sid: string, value: number) =>
@@ -350,7 +356,7 @@ async function setEpisode(
 
 type SetPayload = {
   action: "set";
-  kind: "movie" | "series" | "season" | "episode" | "lock";
+  kind: "movie" | "hide_movie" | "series" | "season" | "episode" | "lock";
   id: number;
   watched: boolean;
   season?: number;
@@ -422,6 +428,18 @@ async function applySetDbOnly(p: SetPayload, u: HouseholdMember) {
   const epsObj: Record<string, [number, number, number][]> = { ...cur.episodes };
   const mkSeasonMarker = (s: number): [number, number, number] =>
     mode === "tmdb_single_split" ? [1, s, SEASON_MARKER] : [s, 1, SEASON_MARKER];
+
+  if (p.kind === "hide_movie") {
+    // Masquage film : uniquement en base (pas de note TMDB)
+    const hidden = new Set<number>(cur.hiddenMovies);
+    if (p.watched) hidden.add(id);
+    else hidden.delete(id);
+    await adminSb
+      .from("popcorn_user_state")
+      .update({ hidden_movies: [...hidden], updated_at: new Date().toISOString() })
+      .eq("email", u.email);
+    return;
+  }
 
   if (p.kind === "movie") {
     if (p.watched) moviesSet.add(id);
@@ -515,9 +533,9 @@ Deno.serve(async (req) => {
       return json(req, { ok: true, user: fresh });
     }
 
-    // 3. Cocher / décocher un film, une série, une saison ou un épisode
+    // 3. Cocher / décocher un film, une série, une saison ou un épisode (ou masquer un film)
     if (payload.action === "set") {
-      if (me.sessionId) {
+      if (me.sessionId && payload.kind !== "hide_movie") {
         await applySetTmdb(payload as SetPayload, me.sessionId);
       }
       // Les listes « rated » de TMDB sont mises en cache côté TMDB quelques secondes/minutes :

@@ -42,6 +42,7 @@
       name: raw.name || raw.email,
       tmdbLinked: Boolean(raw.tmdbLinked),
       movies: new Set(raw.movies || []),
+      hidden: new Set(raw.hiddenMovies || []),
       locked: new Set(raw.lockedTv || []),
       eps
     };
@@ -55,6 +56,7 @@
       name: u.name,
       tmdbLinked: Boolean(u.tmdbLinked),
       movies: [...u.movies],
+      hiddenMovies: [...(u.hidden || [])],
       lockedTv: [...u.locked],
       episodes
     };
@@ -162,7 +164,11 @@
 
   function statusOf(user, item) {
     if (!user) return "unwatched";
-    if (item.type === "movie") return user.movies.has(item.id) ? "watched" : "unwatched";
+    if (item.type === "movie") {
+      if (user.hidden && user.hidden.has(item.id)) return "locked";
+      if (user.movies.has(item.id)) return "watched";
+      return "unwatched";
+    }
     return progress(user, item).status;
   }
 
@@ -393,8 +399,18 @@
   function applyLocal(u, series, p) {
     const id = p.id;
     if (p.kind === "movie") {
-      if (p.watched) u.movies.add(id);
-      else u.movies.delete(id);
+      if (p.watched) {
+        u.movies.add(id);
+        if (u.hidden) u.hidden.delete(id);
+      } else {
+        u.movies.delete(id);
+      }
+      return;
+    }
+    if (p.kind === "hide_movie") {
+      if (!u.hidden) u.hidden = new Set();
+      if (p.watched) u.hidden.add(id);
+      else u.hidden.delete(id);
       return;
     }
     if (p.kind === "lock") {
@@ -671,7 +687,7 @@
     }
     if (state.tab === "series") opts.push(["catchup", "🔄 En cours"]);
     opts.push(["watched", "✅ Vus"]);
-    if (state.tab === "series") opts.push(["locked", "🔒 Masquées"]);
+    opts.push(["locked", state.tab === "series" ? "🔒 Masquées" : "🙈 Masqués"]);
     opts.push(["all", "Tout"]);
     void m;
     return opts;
@@ -900,7 +916,7 @@
     const st = statusOf(user, item);
     let txt = "–";
     if (st === "watched") txt = "✅";
-    else if (st === "locked") txt = "🔒";
+    else if (st === "locked") txt = item.type === "movie" ? "🙈" : "🔒";
     else if (st === "catchup") {
       const p = progress(user, item);
       const todo = (item.releasedSeasons || []).filter((s) => !p.ws.has(s));
@@ -924,7 +940,8 @@
     let cornerHtml = "";
     if (m) {
       if (myStatus === "watched") cornerHtml = '<div class="status-corner vu">✅ Vu</div>';
-      else if (myStatus === "locked") cornerHtml = '<div class="status-corner locked">🔒 Masqué</div>';
+      else if (myStatus === "locked")
+        cornerHtml = '<div class="status-corner locked">' + (item.type === "movie" ? "🙈" : "🔒") + " Masqué</div>";
       else if (myStatus === "catchup") {
         const p = progress(m, item);
         const todo = (item.releasedSeasons || []).filter((s) => !p.ws.has(s));
@@ -1441,6 +1458,7 @@
 
     if (item.type === "movie") {
       const seen = m.movies.has(item.id);
+      const hidden = Boolean(m.hidden && m.hidden.has(item.id));
       html +=
         '<div class="toggle-row"><button type="button" class="btn-toggle ' +
         (seen ? "on" : "") +
@@ -1448,6 +1466,13 @@
         k +
         '">' +
         (seen ? "✅ Vu — toucher pour annuler" : "👁️ Marquer comme vu") +
+        "</button>" +
+        '<button type="button" class="btn-toggle warn ' +
+        (hidden ? "on" : "") +
+        '" data-action="toggle-hide-movie" data-key="' +
+        k +
+        '">' +
+        (hidden ? "🙉 Ne plus masquer" : "🙈 Masquer (pas prévu de le voir)") +
         "</button></div></div>";
       return html;
     }
@@ -1828,6 +1853,9 @@
       /* --- Écritures « vu » --- */
       case "toggle-movie":
         if (item) doSet(item, { kind: "movie", watched: !me().movies.has(item.id) });
+        break;
+      case "toggle-hide-movie":
+        if (item) doSet(item, { kind: "hide_movie", watched: !(me().hidden && me().hidden.has(item.id)) });
         break;
       case "toggle-lock":
         if (item) doSet(item, { kind: "lock", watched: statusOf(me(), item) !== "locked" });
