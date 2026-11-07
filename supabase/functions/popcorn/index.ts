@@ -6,6 +6,8 @@
 //   est relié), lit et écrit directement sur TMDB (et met en cache dans public.popcorn_user_state).
 // - Si l'utilisateur n'a pas encore de session_id TMDB (Vilma par défaut : 0 vu au départ), lit et écrit
 //   dans public.popcorn_user_state, avec possibilité de relier un compte TMDB en 1 clic depuis l'app.
+// - Section Lecture : les mangas / webtoons lus sont lus et écrits sur le compte AniList de chacun
+//   (jeton OAuth AniList stocké dans public.popcorn_user_state, relié en 1 clic depuis l'app).
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -28,6 +30,9 @@ type HouseholdMember = {
   email: string;
   name: string;
   sessionId: string;
+  anilistToken: string;
+  anilistUserId: number | null;
+  anilistName: string;
 };
 
 const DEFAULT_MEMBERS: { email: string; name: string; envKey: string }[] = [
@@ -65,9 +70,12 @@ class HttpError extends Error {
 async function loadHouseholdMembers(): Promise<HouseholdMember[]> {
   const { data: rows } = await adminSb
     .from("popcorn_user_state")
-    .select("email, name, tmdb_session_id");
+    .select("email, name, tmdb_session_id, anilist_token, anilist_user_id, anilist_name");
 
-  const dbMap = new Map<string, { name?: string; tmdb_session_id?: string }>();
+  const dbMap = new Map<
+    string,
+    { name?: string; tmdb_session_id?: string; anilist_token?: string; anilist_user_id?: number; anilist_name?: string }
+  >();
   for (const r of rows ?? []) {
     if (r?.email) dbMap.set(String(r.email).toLowerCase(), r);
   }
@@ -94,6 +102,9 @@ async function loadHouseholdMembers(): Promise<HouseholdMember[]> {
       email,
       name: dbRow?.name || custom?.name || m.name,
       sessionId,
+      anilistToken: String(dbRow?.anilist_token ?? "").trim(),
+      anilistUserId: dbRow?.anilist_user_id ? Number(dbRow.anilist_user_id) : null,
+      anilistName: String(dbRow?.anilist_name ?? ""),
     };
   });
 }
@@ -483,6 +494,122 @@ async function applySetDbOnly(p: SetPayload, u: HouseholdMember) {
   });
 }
 
+// ---------- AniList (section Lecture : mangas & webtoons) ----------
+
+const ANILIST = "https://graphql.anilist.co";
+
+async function anilist(query: string, variables: Record<string, unknown>, token: string): Promise<any> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const r = await fetch(ANILIST, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ query, variables }),
+    });
+    if (r.status === 429) {
+      await new Promise((res) => setTimeout(res, 1500 * (attempt + 1)));
+      continue;
+    }
+    const body = await r.json().catch(() => ({}));
+    if (r.status === 401 || (r.status === 400 && /token|unauthori[sz]ed/i.test(JSON.stringify(body?.errors ?? "")))) {
+      throw new HttpError(401, "Jeton AniList invalide ou expiré : relie à nouveau ton compte AniList");
+    }
+    if (!r.ok || body?.errors) {
+      const msg = body?.errors?.[0]?.message ?? `HTTP ${r.status}`;
+      throw new HttpError(502, `AniList : ${msg}`);
+    }
+    return body.data;
+  }
+  throw new HttpError(503, "AniList surchargé, réessaie dans un instant");
+}
+
+// Statut AniList → statut de l'app : read (lu), reading (en cours, lu jusqu'au tome N), hidden (masqué)
+const ANILIST_TO_APP: Record<string, string> = {
+  COMPLETED: "read",
+  CURRENT: "reading",
+  PAUSED: "reading",
+  REPEATING: "read",
+  DROPPED: "hidden",
+};
+const APP_TO_ANILIST: Record<string, string> = { read: "COMPLETED", reading: "CURRENT", hidden: "DROPPED" };
+
+// { mediaId: [statut, dernier tome lu] }
+type MangaState = Record<string, [string, number]>;
+
+async function getMangaState(u: HouseholdMember): Promise<MangaState | null> {
+  if (!u.anilistToken || !u.anilistUserId) return null;
+  const data = await anilist(
+    `query ($uid: Int) {
+      MediaListCollection(userId: $uid, type: MANGA) {
+        lists { entries { mediaId status progressVolumes } }
+      }
+    }`,
+    { uid: u.anilistUserId },
+    u.anilistToken,
+  );
+  const out: MangaState = {};
+  for (const l of data?.MediaListCollection?.lists ?? []) {
+    for (const e of l?.entries ?? []) {
+      const st = ANILIST_TO_APP[String(e?.status)];
+      if (!st || !e?.mediaId) continue;
+      out[String(e.mediaId)] = [st, Number(e.progressVolumes ?? 0)];
+    }
+  }
+  return out;
+}
+
+async function setManga(u: HouseholdMember, mediaId: number, status: string | null, volume: number) {
+  if (!u.anilistToken || !u.anilistUserId) {
+    throw new HttpError(400, "Relie d'abord ton compte AniList (menu compte)");
+  }
+  if (!status) {
+    const cur = await anilist(
+      `query ($uid: Int, $mid: Int) { MediaList(userId: $uid, mediaId: $mid) { id } }`,
+      { uid: u.anilistUserId, mid: mediaId },
+      u.anilistToken,
+    ).catch((err) => {
+      // AniList renvoie une erreur 404 si l'entrée n'existe pas : rien à supprimer
+      if (err instanceof HttpError && /not found/i.test(err.message)) return null;
+      throw err;
+    });
+    const entryId = cur?.MediaList?.id;
+    if (entryId) {
+      await anilist(`mutation ($id: Int) { DeleteMediaListEntry(id: $id) { deleted } }`, { id: entryId }, u.anilistToken);
+    }
+    return;
+  }
+  const alStatus = APP_TO_ANILIST[status];
+  if (!alStatus) throw new HttpError(400, "statut invalide");
+  const vars: Record<string, unknown> = { mid: mediaId, st: alStatus };
+  let mutation = `mutation ($mid: Int, $st: MediaListStatus) { SaveMediaListEntry(mediaId: $mid, status: $st) { id } }`;
+  if (status === "reading" && Number.isInteger(volume) && volume >= 0) {
+    vars.vol = volume;
+    mutation =
+      `mutation ($mid: Int, $st: MediaListStatus, $vol: Int) { SaveMediaListEntry(mediaId: $mid, status: $st, progressVolumes: $vol) { id } }`;
+  }
+  await anilist(mutation, vars, u.anilistToken);
+}
+
+async function withManga<T extends object>(u: HouseholdMember, base: T) {
+  let manga: MangaState | null = null;
+  let anilistError = "";
+  try {
+    manga = await getMangaState(u);
+  } catch (err) {
+    anilistError = err instanceof Error ? err.message : String(err);
+  }
+  return {
+    ...base,
+    anilistLinked: Boolean(u.anilistToken && u.anilistUserId),
+    anilistName: u.anilistName,
+    manga: manga ?? {},
+    anilistError,
+  };
+}
+
 // ---------- Handler ----------
 
 Deno.serve(async (req) => {
@@ -533,6 +660,47 @@ Deno.serve(async (req) => {
       return json(req, { ok: true, user: fresh });
     }
 
+    // 2b. Relier le compte AniList (jeton obtenu par l'app via OAuth implicite AniList)
+    if (payload.action === "anilist_link") {
+      const token = String(payload.token || "").trim();
+      if (!token || token.length > 4000) throw new HttpError(400, "jeton AniList manquant");
+      const v = await anilist(`query { Viewer { id name } }`, {}, token);
+      if (!v?.Viewer?.id) throw new HttpError(502, "Compte AniList introuvable");
+      await adminSb
+        .from("popcorn_user_state")
+        .update({
+          anilist_token: token,
+          anilist_user_id: Number(v.Viewer.id),
+          anilist_name: String(v.Viewer.name ?? ""),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("email", me.email);
+      me.anilistToken = token;
+      me.anilistUserId = Number(v.Viewer.id);
+      me.anilistName = String(v.Viewer.name ?? "");
+      return json(req, { ok: true, user: await withManga(me, await getDbUserState(me)) });
+    }
+
+    if (payload.action === "anilist_unlink") {
+      await adminSb
+        .from("popcorn_user_state")
+        .update({ anilist_token: null, anilist_user_id: null, anilist_name: null, updated_at: new Date().toISOString() })
+        .eq("email", me.email);
+      me.anilistToken = "";
+      me.anilistUserId = null;
+      me.anilistName = "";
+      return json(req, { ok: true, user: await withManga(me, await getDbUserState(me)) });
+    }
+
+    // 2c. Lecture : marquer un manga / webtoon (lu, en cours jusqu'au tome N, masqué, ou rien) sur AniList
+    if (payload.action === "set_manga") {
+      const mediaId = Number(payload.id);
+      if (!Number.isInteger(mediaId) || mediaId <= 0) throw new HttpError(400, "id invalide");
+      const status = payload.status ? String(payload.status) : null;
+      await setManga(me, mediaId, status, Number(payload.volume ?? 0));
+      return json(req, { ok: true, user: await withManga(me, await getDbUserState(me)) });
+    }
+
     // 3. Cocher / décocher un film, une série, une saison ou un épisode (ou masquer un film)
     if (payload.action === "set") {
       if (me.sessionId && payload.kind !== "hide_movie") {
@@ -543,11 +711,11 @@ Deno.serve(async (req) => {
       // On applique donc la même modification sur l'état en base et on renvoie celui-ci.
       await applySetDbOnly(payload as SetPayload, me);
       const state = await getDbUserState(me);
-      return json(req, { ok: true, user: state });
+      return json(req, { ok: true, user: { ...state, anilistLinked: Boolean(me.anilistToken && me.anilistUserId) } });
     }
 
     // 4. Lecture de l'état complet du foyer (Pierre + Vilma)
-    const states = await Promise.all(members.map((u) => getUserState(u)));
+    const states = await Promise.all(members.map(async (u) => withManga(u, await getUserState(u))));
     return json(req, { me: me.email, users: states });
   } catch (err) {
     const status = err instanceof HttpError ? err.status : 500;

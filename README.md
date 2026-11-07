@@ -72,4 +72,13 @@ python scripts/export_web.py
 python -m http.server -d docs 8080
 ```
 
+### Section 📚 Lecture (mangas & webtoons)
+
+- [`scripts/export_books.py`](scripts/export_books.py) génère `docs/books.json` : les mangas (🇯🇵) et webtoons / manhwa / manhua (🇰🇷 🇨🇳) les mieux notés sur [AniList](https://anilist.co), dans un seul classement filtrable Mangas / Webtoons. API publique, aucune clé ; seuil de lecteurs plus bas pour les webtoons.
+- Les lectures (lu, en cours jusqu'au tome N, masqué) sont enregistrées **sur le compte AniList de chacun** : bouton « Relier mon compte AniList » dans l'app (OAuth implicite, client `56254` dans `docs/config.js`). Seul le jeton AniList (valable 1 an) est stocké dans `popcorn_user_state`.
+
+```bash
+python scripts/export_books.py   # régénère docs/books.json
+```
+
 Le workflow GitHub Actions [`.github/workflows/pages.yml`](.github/workflows/pages.yml) déploie automatiquement `./docs` sur GitHub Pages et régénère `docs/data.json` chaque nuit (05h30 UTC) si les secrets `TMDB_API_KEY` et `TMDB_SESSION_ID` sont configurés sur le dépôt.

@@ -7,6 +7,27 @@
   const CACHE_KEY = "popcorn_household_v1";
 
   const CFG = window.POPCORN_CONFIG || {};
+
+  // Retour de la connexion AniList (OAuth implicite) : le jeton arrive dans le hash de l'URL.
+  // On le récupère et on nettoie l'URL AVANT que Supabase n'essaie d'interpréter ce hash comme sa propre session.
+  let pendingAnilistToken = null;
+  (function captureAnilistToken() {
+    let pending = false;
+    try {
+      pending = sessionStorage.getItem("popcorn_anilist_pending") === "1";
+    } catch (_) {
+      /* ignore */
+    }
+    if (!pending || !location.hash.includes("access_token=")) return;
+    const params = new URLSearchParams(location.hash.slice(1));
+    pendingAnilistToken = params.get("access_token");
+    try {
+      sessionStorage.removeItem("popcorn_anilist_pending");
+    } catch (_) {
+      /* ignore */
+    }
+    history.replaceState(null, "", location.pathname + location.search);
+  })();
   const AUTH_ENABLED = Boolean(
     CFG.supabaseUrl && !String(CFG.supabaseUrl).startsWith("__") && window.supabase && window.supabase.createClient
   );
@@ -18,6 +39,7 @@
   const FN_URL = AUTH_ENABLED ? CFG.supabaseUrl.replace(/\/$/, "") + "/functions/v1/popcorn" : null;
 
   let DATA = { movies: [], series: [], providers: [], region: "BG", generatedAt: "" };
+  let BOOKS = { manga: [], generatedAt: "" };
   const ITEM_MAP = new Map();
 
   /* ---------------- Household state (vus TMDB de chacun) ---------------- */
@@ -34,9 +56,14 @@
   let writeQueue = Promise.resolve();
   const progCache = new Map();
 
-  function normalizeUser(raw) {
+  // prev : état précédent du même utilisateur, pour garder la partie Lecture (AniList)
+  // quand le serveur ne renvoie que la partie films / séries.
+  function normalizeUser(raw, prev) {
     const eps = new Map();
     Object.entries(raw.episodes || {}).forEach(([k, v]) => eps.set(Number(k), v));
+    const manga = new Map();
+    if (raw.manga) Object.entries(raw.manga).forEach(([k, v]) => manga.set(Number(k), v));
+    const keepManga = !raw.manga && prev;
     return {
       email: String(raw.email || "").toLowerCase(),
       name: raw.name || raw.email,
@@ -44,7 +71,11 @@
       movies: new Set(raw.movies || []),
       hidden: new Set(raw.hiddenMovies || []),
       locked: new Set(raw.lockedTv || []),
-      eps
+      eps,
+      anilistLinked: keepManga ? prev.anilistLinked : Boolean(raw.anilistLinked),
+      anilistName: keepManga ? prev.anilistName : raw.anilistName || "",
+      anilistError: keepManga ? prev.anilistError : raw.anilistError || "",
+      manga: keepManga ? prev.manga : manga // Map<mediaId, [statut, tome]>
     };
   }
 
@@ -58,7 +89,10 @@
       movies: [...u.movies],
       hiddenMovies: [...(u.hidden || [])],
       lockedTv: [...u.locked],
-      episodes
+      episodes,
+      anilistLinked: Boolean(u.anilistLinked),
+      anilistName: u.anilistName || "",
+      manga: Object.fromEntries(u.manga || new Map())
     };
   }
 
@@ -87,7 +121,7 @@
       const raw = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
       if (raw && raw.me === canonEmail(email) && Array.isArray(raw.users)) {
         HH.meEmail = raw.me;
-        HH.users = raw.users.map(normalizeUser);
+        HH.users = raw.users.map((x) => normalizeUser(x));
         progCache.clear();
         return true;
       }
@@ -162,8 +196,20 @@
     return res;
   }
 
+  // Lecture : [statut AniList simplifié, dernier tome lu] ou null
+  function mangaEntry(user, item) {
+    return (user && user.manga && user.manga.get(item.id)) || null;
+  }
+
   function statusOf(user, item) {
     if (!user) return "unwatched";
+    if (item.type === "manga") {
+      const e = mangaEntry(user, item);
+      if (!e) return "unwatched";
+      if (e[0] === "read") return "watched";
+      if (e[0] === "hidden") return "locked";
+      return "catchup";
+    }
     if (item.type === "movie") {
       if (user.hidden && user.hidden.has(item.id)) return "locked";
       if (user.movies.has(item.id)) return "watched";
@@ -219,6 +265,7 @@
     showAllLimit: false,
     advOpen: false,
     catchupWho: "me",
+    bookKind: "all",
 
     epSeriesId: null,
     epFilter: "unwatched",
@@ -321,6 +368,11 @@
 
   function prepareItem(item) {
     item._key = item.type + ":" + item.id;
+    if (item.type === "manga") {
+      item._search = norm([item.title, item.alt, item.year, (item.genres || []).join(" "), item.overview].join(" "));
+      ITEM_MAP.set(item._key, item);
+      return;
+    }
     item._search = norm(
       [item.title, item.en, item.orig, item.year, (item.genres || []).join(" "), item.overview].join(" ")
     );
@@ -378,7 +430,9 @@
     try {
       const res = await callFn("GET");
       HH.meEmail = String(res.me || "").toLowerCase();
-      HH.users = (res.users || []).map(normalizeUser);
+      HH.users = (res.users || []).map((x) => normalizeUser(x));
+      const mine = me();
+      if (mine && mine.anilistError && !silent) toast("⚠️ AniList : " + mine.anilistError, true);
       if (HH.pending > 0 || HH.recent.length) reapplyRecent();
       HH.loadedAt = Date.now();
       progCache.clear();
@@ -505,8 +559,7 @@
       .then((res) => {
         HH.pending--;
         if (HH.pending === 0 && res && res.user) {
-          const fresh = normalizeUser(res.user);
-          HH.users = HH.users.map((x) => (x.email === fresh.email ? fresh : x));
+          HH.users = HH.users.map((x) => (x.email === String(res.user.email || "").toLowerCase() ? normalizeUser(res.user, x) : x));
           reapplyRecent();
           progCache.clear();
           saveCache();
@@ -538,6 +591,134 @@
     });
   }
 
+  /* ---------------- Lecture (AniList) ---------------- */
+
+  function doSetManga(item, status, volume) {
+    const u = me();
+    if (!u) {
+      toast("Connecte-toi pour cocher tes lectures", true);
+      return;
+    }
+    if (!u.anilistLinked) {
+      toast("Relie d'abord ton compte AniList (menu compte)", true);
+      return;
+    }
+    const vol = Math.max(0, Math.floor(Number(volume) || 0));
+    if (status) u.manga.set(item.id, [status, vol]);
+    else u.manga.delete(item.id);
+    saveCache();
+    renderAll();
+    if (state.modalKey) renderModalContent();
+
+    HH.pending++;
+    renderAccountButton();
+    writeQueue = writeQueue
+      .then(() => callFn("POST", { action: "set_manga", id: item.id, status: status || null, volume: vol }))
+      .then((res) => {
+        HH.pending--;
+        if (HH.pending === 0 && res && res.user) {
+          HH.users = HH.users.map((x) =>
+            x.email === String(res.user.email || "").toLowerCase() ? normalizeUser(res.user, x) : x
+          );
+          saveCache();
+          renderAll();
+          if (state.modalKey) renderModalContent();
+        } else {
+          renderAccountButton();
+        }
+      })
+      .catch((err) => {
+        HH.pending--;
+        toast("⚠️ Échec de l'enregistrement AniList : " + err.message, true);
+        if (HH.pending === 0) refreshState(true);
+      });
+  }
+
+  function startAnilistLink() {
+    if (!CFG.anilistClientId) {
+      toast("Client AniList non configuré (config.js)", true);
+      return;
+    }
+    try {
+      sessionStorage.setItem("popcorn_anilist_pending", "1");
+    } catch (_) {
+      /* ignore */
+    }
+    location.href =
+      "https://anilist.co/api/v2/oauth/authorize?client_id=" +
+      encodeURIComponent(CFG.anilistClientId) +
+      "&response_type=token";
+  }
+
+  function finishAnilistLink() {
+    if (!pendingAnilistToken) return false;
+    const token = pendingAnilistToken;
+    pendingAnilistToken = null;
+    state.tab = "reading";
+    callFn("POST", { action: "anilist_link", token })
+      .then((res) => {
+        toast("✅ Compte AniList relié" + (res.user && res.user.anilistName ? " (" + res.user.anilistName + ")" : ""));
+        return refreshState(true);
+      })
+      .catch((err) => toast("⚠️ Liaison AniList échouée : " + err.message, true));
+    return true;
+  }
+
+  // Onglet Lecture : configuration du classement affiché
+  function readingSource() {
+    return BOOKS.manga || [];
+  }
+  function readingShelfRow() {
+    return "";
+  }
+  function readingKinds() {
+    return [
+      ["all", "📚 Tous"],
+      ["manga", "🇯🇵 Mangas"],
+      ["webtoon", "🇰🇷 Webtoons"]
+    ];
+  }
+  function readingSorts() {
+    return [
+      ["imdb", "⭐ Note AniList"],
+      ["votes", "🔥 Nombre de notes"],
+      ["members", "👥 Lecteurs AniList"],
+      ["year", "📅 Plus récents"]
+    ];
+  }
+  function readingPresets() {
+    return [
+      ["none", "Tous"],
+      ["masterpiece", "⭐ Chefs-d'œuvre (8.8+)"],
+      ["gem", "💎 Pépites (< 5k notes)"],
+      ["classic", "🏛️ Incontournables (30k+ notes)"],
+      ["finished", "🏁 Terminés"],
+      ["recent", "🆕 Depuis 2020"]
+    ];
+  }
+
+  function kindLabel(item) {
+    if (item.kind === "manga") return "🇯🇵 Manga";
+    if (item.country === "CN" || item.country === "TW") return "🇨🇳 Manhua";
+    return "🇰🇷 Webtoon";
+  }
+
+  function bookStatusLabel(item) {
+    if (item.status === "FINISHED") return item.volumes ? "Terminé · " + item.volumes + " tomes" : "Terminé";
+    if (item.status === "RELEASING") return "En cours de parution";
+    if (item.status === "HIATUS") return "En pause";
+    if (item.status === "CANCELLED") return "Arrêté";
+    return "";
+  }
+
+  function readingLabel(user, item) {
+    const e = mangaEntry(user, item);
+    if (!e) return "";
+    if (e[0] === "read") return "✅ Lu";
+    if (e[0] === "hidden") return "🙈 Masqué";
+    return "📖 " + (e[1] ? "Tome " + e[1] : "En cours");
+  }
+
   /* ---------------- Init ---------------- */
 
   async function loadCatalog() {
@@ -550,10 +731,22 @@
     progCache.clear();
     (DATA.movies || []).forEach(prepareItem);
     (DATA.series || []).forEach(prepareItem);
+    await loadBooks();
     const dateTxt = formatGenDate(DATA.generatedAt);
     elHeaderSub.textContent =
       "Netflix · Prime · Apple TV (" + (DATA.region || "BG") + ")" + (dateTxt ? " · màj " + dateTxt : "");
     return prevGen !== DATA.generatedAt;
+  }
+
+  async function loadBooks() {
+    try {
+      const res = await fetch("./books.json?t=" + Date.now(), { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      BOOKS = await res.json();
+    } catch (_) {
+      BOOKS = { manga: [], generatedAt: "" }; // pas encore généré : l'onglet Lecture sera vide
+    }
+    (BOOKS.manga || []).forEach(prepareItem);
   }
 
   let reloading = false;
@@ -737,6 +930,10 @@
             if (!state.statusTouched) state.status = "todoBoth";
             renderAll();
           }
+          if (finishAnilistLink()) {
+            renderAll();
+            return;
+          }
           const params = new URLSearchParams(location.search);
           const reqToken = params.get("request_token");
           if (reqToken && params.get("approved") === "true") {
@@ -779,8 +976,17 @@
       opts.push(["todoMeOnly", "🙋 Que moi (" + o.name + " l'a vu)"]);
       opts.push(["todoOtherOnly", "💁 Que " + o.name + " (je l'ai vu)"]);
     }
-    if (state.tab === "series") opts.push(["catchup", "🔄 En cours"]);
-    opts.push(["watched", "✅ Vus"]);
+    const reading = state.tab === "reading";
+    if (reading) {
+      opts[0][1] = o ? "👥 À lire (ni l'un ni l'autre)" : "📚 À lire";
+      if (o) {
+        opts[1][1] = "🙋 Pas lu par moi";
+        opts[2][1] = "🙋 Que moi (" + o.name + " l'a lu)";
+        opts[3][1] = "💁 Que " + o.name + " (je l'ai lu)";
+      }
+    }
+    if (state.tab === "series" || reading) opts.push(["catchup", reading ? "📖 En cours" : "🔄 En cours"]);
+    opts.push(["watched", reading ? "✅ Lus" : "✅ Vus"]);
     opts.push(["locked", state.tab === "series" ? "🔒 Masquées" : "🙈 Masqués"]);
     opts.push(["all", "Tout"]);
     void m;
@@ -822,7 +1028,8 @@
 
   function getFilteredList(forTab) {
     const tab = forTab || state.tab;
-    const source = tab === "movies" ? DATA.movies : DATA.series;
+    const reading = tab === "reading";
+    const source = reading ? BOOKS.manga || [] : tab === "movies" ? DATA.movies : DATA.series;
     const qNorm = norm(state.q.trim());
     const validStatuses = statusOptions().map((o) => o[0]);
     const status = validStatuses.includes(state.status) ? state.status : validStatuses[0];
@@ -830,8 +1037,18 @@
     const filtered = source.filter((item) => {
       if (!matchStatus(item, status)) return false;
 
-      if (state.providers.size > 0 && !(item.providers || []).some((p) => state.providers.has(p))) return false;
       if (state.genre !== "all" && !(item.genres || []).includes(state.genre)) return false;
+      if (reading) {
+        if (state.bookKind !== "all" && item.kind !== state.bookKind) return false;
+        if (state.preset === "masterpiece" && (item.score || 0) < 8.8) return false;
+        if (state.preset === "gem" && (item.votes || 0) >= 5000) return false;
+        if (state.preset === "classic" && (item.votes || 0) < 30000) return false;
+        if (state.preset === "finished" && item.status !== "FINISHED") return false;
+        if (state.preset === "recent" && Number(item.year || 0) < 2020) return false;
+        if (qNorm && !item._search.includes(qNorm)) return false;
+        return true;
+      }
+      if (state.providers.size > 0 && !(item.providers || []).some((p) => state.providers.has(p))) return false;
 
       if (state.preset === "masterpiece" && (item.imdb || 0) < 8.5) return false;
       if (state.preset === "gem" && (item.votes || 0) >= 50000) return false;
@@ -850,6 +1067,7 @@
     const o = other();
     const targetUser = (status === "todoOtherOnly" && o) ? o : m;
     const scoreOf = (x) => {
+      if (reading) return x.score || 0;
       if (tab === "series" && targetUser && statusOf(targetUser, x) === "catchup") {
         return unwatchedImdb(targetUser, x);
       }
@@ -859,6 +1077,7 @@
     filtered.sort((a, b) => {
       if (state.sort === "votes") return (b.votes || 0) - (a.votes || 0) || (scoreOf(b) - scoreOf(a));
       if (state.sort === "year") return Number(b.year || 0) - Number(a.year || 0) || (scoreOf(b) - scoreOf(a));
+      if (state.sort === "members") return (b.members || 0) - (a.members || 0) || (scoreOf(b) - scoreOf(a));
       if (state.sort === "tmdb") return (b.tmdb || 0) - (a.tmdb || 0) || (scoreOf(b) - scoreOf(a));
       return scoreOf(b) - scoreOf(a) || (b.votes || 0) - (a.votes || 0);
     });
@@ -897,6 +1116,7 @@
     const st = loggedIn() ? "todoBoth" : "all";
     document.getElementById("badgeMovies").textContent = DATA.movies.filter((x) => matchStatus(x, st)).length;
     document.getElementById("badgeSeries").textContent = DATA.series.filter((x) => matchStatus(x, st)).length;
+    document.getElementById("badgeReading").textContent = (BOOKS.manga || []).filter((x) => matchStatus(x, st)).length || "–";
     document.getElementById("badgeCatchup").textContent = loggedIn() ? catchupList(me()).length : "–";
     document.querySelectorAll("#mainTabs .tab-btn").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.tab === state.tab);
@@ -940,8 +1160,12 @@
       return;
     }
 
-    elSearchInput.placeholder =
-      state.tab === "movies" ? "Rechercher un film VF/VO, genre, année…" : "Rechercher une série VF/VO, genre, année…";
+    const reading = state.tab === "reading";
+    elSearchInput.placeholder = reading
+      ? "Rechercher un manga, un webtoon, un genre…"
+      : state.tab === "movies"
+      ? "Rechercher un film VF/VO, genre, année…"
+      : "Rechercher une série VF/VO, genre, année…";
     elBtnAdvToggle.style.display = "inline-flex";
 
     const advCount = getActiveAdvancedCount();
@@ -952,41 +1176,54 @@
 
     const opts = statusOptions();
     const curStatus = opts.some((o) => o[0] === state.status) ? state.status : opts[0][0];
-    const items = state.tab === "movies" ? DATA.movies || [] : DATA.series || [];
+    const items = reading ? readingSource() : state.tab === "movies" ? DATA.movies || [] : DATA.series || [];
     const totalCount = items.length;
     const allLabel = totalCount ? "Catalogue complet (" + totalCount + ")" : "Catalogue complet";
 
-    const sortMap = {
-      imdb: "⭐ Note IMDb",
-      votes: "🔥 Popularité",
-      year: "📅 Plus récents",
-      tmdb: "💙 Note TMDB"
-    };
-    const presetMap = {
-      masterpiece: "⭐ Chefs-d'œuvre (8.5+)",
-      gem: "💎 Pépites (< 50k)",
-      classic: "🏛️ Classiques (200k+)",
-      recent: "🆕 Sorties 2023+",
-      miniseries: "⚡ Format court",
-      episodic: "🎭 Sitcoms & Antho."
-    };
+    const sortOpts = reading
+      ? readingSorts()
+      : [
+          ["imdb", "⭐ Note IMDb"],
+          ["votes", "🔥 Popularité (votes)"],
+          ["year", "📅 Plus récents"],
+          ["tmdb", "💙 Note TMDB"]
+        ];
+    const sortMap = Object.fromEntries(sortOpts);
+    const presets = reading
+      ? readingPresets()
+      : [
+          ["none", "Tous"],
+          ["masterpiece", "⭐ Chefs-d'œuvre (8.5+)"],
+          ["gem", "💎 Pépites (< 50k votes)"],
+          ["classic", "🏛️ Classiques (200k+)"],
+          ["recent", "🆕 Sorties 2023+"]
+        ];
+    if (state.tab === "series") {
+      presets.push(["miniseries", "⚡ Format court (1 saison)"]);
+      presets.push(["episodic", "🎭 Sitcoms & Anthologies"]);
+    }
+    const presetMap = Object.fromEntries(presets);
 
-    // Ligne 1 : Plateformes + filtres avancés actifs (supprimables en 1 toucher) + bouton Tous les filtres
+    // Ligne 1 : Plateformes (ou type de lecture) + filtres avancés actifs (supprimables en 1 toucher) + bouton Tous les filtres
     let row1 = '<div class="chip-scroll">';
-    row1 += chip("prov-all", "", "Toutes", state.providers.size === 0);
-    [
-      ["Netflix", "prov-netflix", "dot-netflix"],
-      ["Prime Video", "prov-prime", "dot-prime"],
-      ["Apple TV", "prov-apple", "dot-apple"]
-    ].forEach(([pName, cls, dotCls]) => {
-      row1 += chip(
-        "prov-toggle",
-        pName,
-        '<span class="dot ' + dotCls + '"></span>' + esc(pName),
-        state.providers.has(pName),
-        cls
-      );
-    });
+    if (reading) {
+      readingKinds().forEach(([val, lbl]) => (row1 += chip("set-book-kind", val, lbl, state.bookKind === val)));
+    } else {
+      row1 += chip("prov-all", "", "Toutes", state.providers.size === 0);
+      [
+        ["Netflix", "prov-netflix", "dot-netflix"],
+        ["Prime Video", "prov-prime", "dot-prime"],
+        ["Apple TV", "prov-apple", "dot-apple"]
+      ].forEach(([pName, cls, dotCls]) => {
+        row1 += chip(
+          "prov-toggle",
+          pName,
+          '<span class="dot ' + dotCls + '"></span>' + esc(pName),
+          state.providers.has(pName),
+          cls
+        );
+      });
+    }
 
     if (state.genre !== "all") {
       row1 += chip("set-genre", "all", "🎭 " + esc(state.genre) + " ✕", false, "active-pill");
@@ -1003,14 +1240,14 @@
     row1 += chip("toggle-adv", "", "⚙️ Genres & Tri…", false, "more-filters");
     row1 += "</div>";
 
-    // Ligne 2 : Statut (« Qui a vu ? »)
+    // Ligne 2 : Statut (« Qui a vu ? » / « Qui a lu ? »)
     let row2 = "";
     if (opts.length > 1) {
       row2 = '<div class="chip-scroll">';
       opts.forEach(([val, lbl]) => (row2 += chip("set-status", val, esc(lbl), curStatus === val)));
       row2 += "</div>";
     }
-    elQuickChips.innerHTML = row1 + row2;
+    elQuickChips.innerHTML = (reading ? readingShelfRow() : "") + row1 + row2;
 
     if (!state.advOpen) return;
 
@@ -1018,54 +1255,51 @@
     items.forEach((it) => (it.genres || []).forEach((g) => (genreCounts[g] = (genreCounts[g] || 0) + 1)));
     const sortedGenres = Object.keys(genreCounts).sort((a, b) => genreCounts[b] - genreCounts[a]);
 
-    const presets = [
-      ["none", "Tous"],
-      ["masterpiece", "⭐ Chefs-d'œuvre (8.5+)"],
-      ["gem", "💎 Pépites (< 50k votes)"],
-      ["classic", "🏛️ Classiques (200k+)"],
-      ["recent", "🆕 Sorties 2023+"]
-    ];
-    if (state.tab === "series") {
-      presets.push(["miniseries", "⚡ Format court (1 saison)"]);
-      presets.push(["episodic", "🎭 Sitcoms & Anthologies"]);
-    }
-
     const defStatus = loggedIn() ? "todoBoth" : "all";
-    const hasAnyFilter = advCount > 0 || state.providers.size > 0 || curStatus !== defStatus || state.q.trim().length > 0;
+    const hasAnyFilter =
+      advCount > 0 ||
+      state.providers.size > 0 ||
+      (reading && state.bookKind !== "all") ||
+      curStatus !== defStatus ||
+      state.q.trim().length > 0;
     const matchCount = getFilteredList(state.tab).length;
 
     let advHtml = "";
 
     if (opts.length > 1) {
-      advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Qui a vu ? (Statut)</span></div><div class="chip-wrap">';
+      advHtml +=
+        '<div class="adv-group"><div class="adv-label-row"><span>' +
+        (reading ? "Qui a lu ? (Statut)" : "Qui a vu ? (Statut)") +
+        '</span></div><div class="chip-wrap">';
       opts.forEach(([val, lbl]) => (advHtml += chip("set-status", val, esc(lbl), curStatus === val)));
       advHtml += "</div></div>";
     }
 
-    advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Plateformes</span></div><div class="chip-wrap">';
-    advHtml += chip("prov-all", "", "Toutes plateformes", state.providers.size === 0);
-    [
-      ["Netflix", "prov-netflix", "dot-netflix"],
-      ["Prime Video", "prov-prime", "dot-prime"],
-      ["Apple TV", "prov-apple", "dot-apple"]
-    ].forEach(([pName, cls, dotCls]) => {
-      advHtml += chip(
-        "prov-toggle",
-        pName,
-        '<span class="dot ' + dotCls + '"></span>' + esc(pName),
-        state.providers.has(pName),
-        cls
-      );
-    });
-    advHtml += "</div></div>";
+    if (reading) {
+      advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Type</span></div><div class="chip-wrap">';
+      readingKinds().forEach(([val, lbl]) => (advHtml += chip("set-book-kind", val, lbl, state.bookKind === val)));
+      advHtml += "</div></div>";
+    } else {
+      advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Plateformes</span></div><div class="chip-wrap">';
+      advHtml += chip("prov-all", "", "Toutes plateformes", state.providers.size === 0);
+      [
+        ["Netflix", "prov-netflix", "dot-netflix"],
+        ["Prime Video", "prov-prime", "dot-prime"],
+        ["Apple TV", "prov-apple", "dot-apple"]
+      ].forEach(([pName, cls, dotCls]) => {
+        advHtml += chip(
+          "prov-toggle",
+          pName,
+          '<span class="dot ' + dotCls + '"></span>' + esc(pName),
+          state.providers.has(pName),
+          cls
+        );
+      });
+      advHtml += "</div></div>";
+    }
 
     advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Tri &amp; Portée</span></div><div class="chip-wrap">';
-    [
-      ["imdb", "⭐ Note IMDb"],
-      ["votes", "🔥 Popularité (votes)"],
-      ["year", "📅 Plus récents"],
-      ["tmdb", "💙 Note TMDB"]
-    ].forEach(([val, lbl]) => (advHtml += chip("set-sort", val, lbl, state.sort === val)));
+    sortOpts.forEach(([val, lbl]) => (advHtml += chip("set-sort", val, lbl, state.sort === val)));
     advHtml += '<span class="chip-sep"></span>';
     advHtml += chip("set-limit", "top50", "Top 50", !state.showAllLimit);
     advHtml += chip("set-limit", "all", allLabel, state.showAllLimit);
@@ -1098,6 +1332,11 @@
 
   function whoPill(user, item) {
     const st = statusOf(user, item);
+    if (item.type === "manga") {
+      return (
+        '<span class="who-pill ' + st + '">' + esc(user.name) + " " + esc(readingLabel(user, item) || "–") + "</span>"
+      );
+    }
     let txt = "–";
     if (st === "watched") txt = "✅";
     else if (st === "locked") txt = item.type === "movie" ? "🙈" : "🔒";
@@ -1114,7 +1353,60 @@
     return '<div class="who-row">' + HH.users.map((u) => whoPill(u, item)).join("") + "</div>";
   }
 
+  function renderBookCard(item, idx) {
+    const m = me();
+    const myStatus = statusOf(m, item);
+    const posterHtml = item.cover
+      ? '<img src="' + esc(item.cover) + '" alt="' + esc(item.title) + '" loading="lazy" />'
+      : '<div class="poster-fallback">📚</div>';
+    let cornerHtml = "";
+    if (m && myStatus !== "unwatched") {
+      const cls = myStatus === "watched" ? "vu" : myStatus === "locked" ? "locked" : "catchup";
+      cornerHtml = '<div class="status-corner ' + cls + '">' + esc(readingLabel(m, item)) + "</div>";
+    }
+    const isMuted = m && (myStatus === "watched" || myStatus === "locked") && state.status === "all";
+    const genrePills = (item.genres || [])
+      .slice(0, 2)
+      .map((g) => '<span class="genre-pill">' + esc(g) + "</span>")
+      .join("");
+    const st = bookStatusLabel(item);
+    return (
+      '<article class="media-card ' +
+      (isMuted ? "is-vu" : "") +
+      '" data-action="open-modal" data-key="' +
+      esc(item._key) +
+      '"><div class="poster-wrap">' +
+      posterHtml +
+      '<div class="rank-badge">#' +
+      (idx + 1) +
+      "</div>" +
+      cornerHtml +
+      '</div><div class="card-body"><div class="card-title-row"><span class="card-title">' +
+      esc(item.title) +
+      '</span><span class="card-year">' +
+      esc(item.year) +
+      "</span></div>" +
+      (item.alt ? '<div class="card-orig">' + esc(item.alt) + "</div>" : "") +
+      '<div class="scores-row"><span class="badge-imdb">★ ' +
+      fmt1(item.score) +
+      (item.votes ? ' <span class="votes">(' + fmtVotes(item.votes) + " notes)</span>" : "") +
+      "</span></div>" +
+      '<div class="meta-tags"><span class="kind-pill ' +
+      esc(item.kind) +
+      '">' +
+      esc(kindLabel(item)) +
+      "</span>" +
+      genrePills +
+      (st ? '<span class="genre-pill">' + esc(st) + "</span>" : "") +
+      "</div>" +
+      whoRow(item) +
+      (item.overview ? '<div class="card-overview">' + esc(item.overview) + "</div>" : "") +
+      "</div></article>"
+    );
+  }
+
   function renderCard(item, idx) {
+    if (item.type === "manga") return renderBookCard(item, idx);
     const posterHtml = item.poster
       ? '<img src="' + IMG_SM + esc(item.poster) + '" alt="' + esc(item.title) + '" loading="lazy" />'
       : '<div class="poster-fallback">' + (item.type === "movie" ? "🎬" : "📺") + "</div>";
@@ -1225,6 +1517,21 @@
     const visible = list.slice(0, limit);
 
     let html = loginHint();
+
+    if (state.tab === "reading") {
+      const m = me();
+      if (m && !m.anilistLinked) {
+        html +=
+          '<div class="login-hint"><span>📚 Relie ton compte AniList pour cocher tes mangas et webtoons lus (ils sont enregistrés sur AniList).</span>' +
+          '<button type="button" class="chip active" data-action="link-anilist">Relier AniList</button></div>';
+      }
+      if (!(BOOKS.manga || []).length) {
+        elMainContent.innerHTML =
+          html +
+          '<div class="empty-state"><div class="emoji">📚</div><div>Le classement des mangas &amp; webtoons n\'est pas encore généré (<code>books.json</code>).</div></div>';
+        return;
+      }
+    }
 
     if (state.tab === "series" && loggedIn() && !isSearching && state.status !== "catchup") {
       const catchups = catchupList(me());
@@ -1559,7 +1866,7 @@
     updateBadges();
     renderToolbar();
     renderAccountButton();
-    if (state.tab === "movies" || state.tab === "series") renderMoviesOrSeries();
+    if (state.tab === "movies" || state.tab === "series" || state.tab === "reading") renderMoviesOrSeries();
     else if (state.tab === "catchup") renderCatchupTab();
     else renderEpisodesTab();
   }
@@ -1612,7 +1919,10 @@
               DATA.series.filter((s) => isFinished(u, s)).length +
               " séries finies · " +
               catchupList(u).length +
-              " en cours"
+              " en cours · " +
+              (u.anilistLinked
+                ? [...(u.manga || new Map()).values()].filter((x) => x[0] === "read").length + " mangas lus"
+                : "AniList non relié")
           )
           .join("<br/>") +
         "</p></div>";
@@ -1623,13 +1933,20 @@
       '<button type="button" class="btn-action" data-action="link-tmdb">' +
       (m && m.tmdbLinked ? "🔗 Changer de compte TMDB" : "🔗 Relier mon compte TMDB") +
       "</button>";
+    html +=
+      '<button type="button" class="btn-action" data-action="link-anilist">' +
+      (m && m.anilistLinked ? "📚 Changer de compte AniList (" + esc(m.anilistName) + ")" : "📚 Relier mon compte AniList") +
+      "</button>";
+    if (m && m.anilistLinked) {
+      html += '<button type="button" class="btn-action" data-action="unlink-anilist">📚 Délier AniList</button>';
+    }
     html += '<button type="button" class="btn-action" data-action="logout">🚪 Se déconnecter</button>';
     html += "</div>";
     if (o) {
       html +=
         '<p class="sheet-overview" style="margin-top:14px;font-size:12.5px;color:var(--text-muted)">Tu peux voir les vus de ' +
         esc(o.name) +
-        " mais seuls les tiens sont modifiables. Tout est enregistré directement sur ton compte TMDB.</p>";
+        " mais seuls les tiens sont modifiables. Films et séries sont enregistrés sur ton compte TMDB, mangas et webtoons sur ton compte AniList.</p>";
     }
     elModalSheet.innerHTML = html;
   }
@@ -1721,6 +2038,94 @@
     return html;
   }
 
+  function renderMangaTracking(item) {
+    const m = me();
+    if (!m) {
+      return AUTH_ENABLED
+        ? '<div class="sheet-section"><button type="button" class="btn-toggle" data-action="login" style="width:100%">🔑 Connexion Google pour cocher « lu »</button></div>'
+        : "";
+    }
+    const o = other();
+    let html = '<div class="sheet-section"><div class="sheet-section-title"><span>Ma lecture (' + esc(m.name) + ")</span>";
+    if (o) html += whoPill(o, item);
+    html += "</div>";
+    if (!m.anilistLinked) {
+      html +=
+        '<p class="sheet-overview" style="font-size:12.5px;color:var(--text-muted)">Tes lectures sont enregistrées sur ton compte AniList.</p>' +
+        '<button type="button" class="btn-toggle" data-action="link-anilist" style="width:100%">🔗 Relier mon compte AniList</button></div>';
+      return html;
+    }
+    const e = mangaEntry(m, item);
+    const st = e ? e[0] : null;
+    const k = esc(item._key);
+    html +=
+      '<div class="toggle-row">' +
+      '<button type="button" class="btn-toggle ' + (st === "read" ? "on" : "") + '" data-action="manga-set" data-st="read" data-key="' + k + '">' +
+      (st === "read" ? "✅ Lu — toucher pour annuler" : "✅ Tout lu") +
+      "</button>" +
+      '<button type="button" class="btn-toggle ' + (st === "reading" ? "on" : "") + '" data-action="manga-set" data-st="reading" data-key="' + k + '">' +
+      (st === "reading" ? "📖 En cours — annuler" : "📖 En cours") +
+      "</button>" +
+      '<button type="button" class="btn-toggle warn ' + (st === "hidden" ? "on" : "") + '" data-action="manga-set" data-st="hidden" data-key="' + k + '">' +
+      (st === "hidden" ? "🙉 Ne plus masquer" : "🙈 Masquer (pas pour moi)") +
+      "</button></div>";
+    if (st === "reading") {
+      html +=
+        '<div class="tome-row"><span>Lu jusqu\'au tome</span><input type="number" min="0" inputmode="numeric" class="tome-input" id="tomeInput" value="' +
+        (e[1] || "") +
+        '" placeholder="–" />' +
+        (item.volumes ? "<span>/ " + item.volumes + "</span>" : "") +
+        '<button type="button" class="chip active" data-action="manga-tome" data-key="' + k + '">Enregistrer</button></div>';
+    }
+    html += "</div>";
+    return html;
+  }
+
+  function renderMangaModal(item) {
+    const posterHtml = item.cover
+      ? '<img src="' + esc(item.cover) + '" alt="' + esc(item.title) + '" />'
+      : '<div class="poster-fallback">📚</div>';
+    const genrePills = (item.genres || []).map((g) => '<span class="genre-pill">' + esc(g) + "</span>").join("");
+    const st = bookStatusLabel(item);
+    let html = '<div class="sheet-handle"></div>';
+    if (state.modalFromRandom) {
+      html +=
+        '<div class="random-bar"><span>🎲 Tiré au sort dans ta sélection</span>' +
+        '<button type="button" class="btn-random" data-action="reroll-random" style="padding:4px 10px;font-size:12px">🎲 Relancer</button></div>';
+    }
+    html += '<div class="sheet-top"><div class="sheet-poster">' + posterHtml + "</div>";
+    html += '<button type="button" class="sheet-close" data-action="close-modal" aria-label="Fermer">✕</button>';
+    html += '<div class="sheet-info"><div class="sheet-title">' + esc(item.title) + "</div>";
+    if (item.alt) html += '<div class="card-orig" style="white-space:normal">' + esc(item.alt) + "</div>";
+    html +=
+      '<div class="scores-row" style="margin-top:2px"><span class="badge-imdb">★ ' +
+      fmt1(item.score) +
+      ' <span class="votes">(' +
+      fmtVotes(item.votes) +
+      " notes)</span></span>" +
+      '<span class="badge-tmdb">' +
+      fmtVotes(item.members) +
+      ' lecteurs</span><span class="card-year">' +
+      esc(item.year) +
+      "</span></div>";
+    html +=
+      '<div class="meta-tags"><span class="kind-pill ' + esc(item.kind) + '">' + esc(kindLabel(item)) + "</span>" +
+      (st ? '<span class="genre-pill">' + esc(st) + "</span>" : "") +
+      "</div>";
+    html += '<div class="meta-tags">' + genrePills + "</div>";
+    html += whoRow(item);
+    html += "</div></div>";
+    html += '<div class="sheet-actions"><a class="btn-action" href="' + esc(item.url) + '" target="_blank" rel="noopener">📚 AniList</a></div>';
+    html += renderMangaTracking(item);
+    if (item.overview) {
+      html +=
+        '<div class="sheet-section"><div class="sheet-section-title"><span>Synopsis (EN)</span></div><p class="sheet-overview" style="white-space:pre-line">' +
+        esc(item.overview) +
+        "</p></div>";
+    }
+    elModalSheet.innerHTML = html;
+  }
+
   function renderModalContent() {
     if (state.modalKey === "__account__") {
       renderAccountSheet();
@@ -1728,6 +2133,10 @@
     }
     const item = ITEM_MAP.get(state.modalKey);
     if (!item) return;
+    if (item.type === "manga") {
+      renderMangaModal(item);
+      return;
+    }
     const m = me();
 
     const posterHtml = item.poster
@@ -1881,7 +2290,13 @@
   elMainTabs.addEventListener("click", (e) => {
     const btn = e.target.closest(".tab-btn");
     if (!btn || btn.dataset.tab === state.tab) return;
+    if ((btn.dataset.tab === "reading") !== (state.tab === "reading")) {
+      state.genre = "all";
+      state.preset = "none";
+      state.sort = "imdb";
+    }
     state.tab = btn.dataset.tab;
+    btn.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
     state.advOpen = false;
     if (state.tab === "movies" && (state.preset === "miniseries" || state.preset === "episodic")) state.preset = "none";
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -1959,6 +2374,33 @@
         state.statusTouched = true;
         renderAll();
         break;
+      case "set-book-kind":
+        state.bookKind = val;
+        renderAll();
+        break;
+      case "link-anilist":
+        startAnilistLink();
+        break;
+      case "unlink-anilist":
+        if (!confirm("Délier ton compte AniList ? Tes lectures restent sur AniList.")) break;
+        callFn("POST", { action: "anilist_unlink" })
+          .then(() => refreshState(true))
+          .catch((err) => toast("⚠️ " + err.message, true));
+        break;
+      case "manga-set": {
+        if (!item) break;
+        const want = target.dataset.st;
+        const cur = mangaEntry(me(), item);
+        if (cur && cur[0] === want) doSetManga(item, null, 0);
+        else doSetManga(item, want, want === "reading" && cur ? cur[1] : 0);
+        break;
+      }
+      case "manga-tome": {
+        if (!item) break;
+        const inp = document.getElementById("tomeInput");
+        doSetManga(item, "reading", inp ? inp.value : 0);
+        break;
+      }
       case "prov-all":
         state.providers.clear();
         renderAll();

@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
   schedule:
     # Rafraîchit automatiquement la liste tous les matins à 05h30 UTC avec les dernières notes IMDb & ton compte TMDB
+    # (et le classement mangas & webtoons AniList)
     - cron: "30 5 * * *"
 
 permissions:
@@ -64,6 +65,19 @@ jobs:
         run: |
           pip install -r requirements.txt
           python scripts/export_web.py --out docs/data.json
+
+      - name: Setup Python (Lecture)
+        if: steps.check_secrets.outputs.enabled != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Rebuild docs/books.json from AniList (mangas & webtoons)
+        # Indépendant des secrets TMDB : l'API AniList est publique. En cas d'échec, on garde le books.json existant.
+        continue-on-error: true
+        run: |
+          pip install -r requirements.txt
+          python scripts/export_books.py --out docs/books.json
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
