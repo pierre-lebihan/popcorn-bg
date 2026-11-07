@@ -233,6 +233,7 @@ T += [
     ("Largo Winch", "bd", "series", "Jean Van Hamme, Philippe Francq", 1990, None, ["classique"]),
     ("Les Passagers du vent", "bd", "series", "François Bourgeon", 1979, 9, ["classique"]),
     ("L'Incal", "bd", "series", "Alejandro Jodorowsky, Moebius", 1981, 6, ["classique"], {"hc": "The Incal"}),
+    ("La Caste des Méta-Barons", "bd", "series", "Alejandro Jodorowsky, Juan Giménez", 1992, 8, ["classique"], {"hc": "The Metabarons Jodorowsky"}),
     ("Valérian et Laureline", "bd", "series", "Pierre Christin, Jean-Claude Mézières", 1970, 23, ["classique"], {"hc": "Valerian Christin Mezieres"}),
     ("Les Vieux Fourneaux", "bd", "series", "Wilfrid Lupano, Paul Cauuet", 2014, None, ["classique"]),
 ]

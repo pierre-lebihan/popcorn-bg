@@ -2855,6 +2855,23 @@
    "hc": "The Incal"
   },
   {
+   "id": "la-caste-des-meta-barons",
+   "title": "La Caste des Méta-Barons",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Alejandro Jodorowsky, Juan Giménez",
+   "year": 1992,
+   "volumes": 8,
+   "cites": [
+    {
+     "src": "classique",
+     "year": null,
+     "note": ""
+    }
+   ],
+   "hc": "The Metabarons Jodorowsky"
+  },
+  {
    "id": "valerian-et-laureline",
    "title": "Valérian et Laureline",
    "kind": "bd",
