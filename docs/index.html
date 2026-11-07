@@ -154,16 +154,22 @@
 
     /* Segmented Tabs */
     .tabs {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 5px;
+      display: flex;
+      overflow-x: auto;
+      scrollbar-width: none;
+      gap: 4px;
       background: var(--bg-elev);
       padding: 4px;
       border-radius: 12px;
       border: 1px solid var(--border);
     }
 
+    .tabs::-webkit-scrollbar {
+      display: none;
+    }
+
     .tab-btn {
+      flex: 1 0 auto;
       appearance: none;
       border: none;
       background: transparent;
@@ -1317,6 +1323,35 @@
       color: #f1f5f9;
     }
 
+    .kind-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1.5px 6px;
+      border-radius: 5px;
+      background: var(--accent-bg);
+      color: #7dd3fc;
+    }
+    .kind-pill.webtoon { background: rgba(52, 211, 153, 0.14); color: #6ee7b7; }
+
+    .tome-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .tome-input {
+      width: 76px;
+      padding: 8px 10px;
+      border-radius: 9px;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-elev);
+      color: var(--text);
+      font-size: 14px;
+    }
+
     .btn-toggle:disabled, .ep-check:disabled, .chip:disabled {
       opacity: 0.5;
       cursor: wait;
@@ -1454,6 +1489,9 @@
         </button>
         <button type="button" class="tab-btn" data-tab="episodes">
           🎯 Épisodes
+        </button>
+        <button type="button" class="tab-btn" data-tab="reading">
+          📚 Lecture <span class="tab-badge" id="badgeReading">–</span>
         </button>
       </nav>
 

@@ -64,7 +64,7 @@ query ($page: Int, $country: CountryCode, $minPop: Int) {
   Page(page: $page, perPage: 50) {
     pageInfo { hasNextPage }
     media(type: MANGA, format_in: [MANGA, ONE_SHOT], countryOfOrigin: $country, isAdult: false,
-          popularity_greater: $minPop, sort: SCORE_DESC) {
+          popularity_greater: $minPop, averageScore_greater: 72, sort: SCORE_DESC) {
       id
       title { romaji english native }
       averageScore
