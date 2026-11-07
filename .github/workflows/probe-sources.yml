@@ -2,7 +2,7 @@ name: Probe reading sources (temporary)
 on:
   push:
     branches: ["claude/project-thread-40i5jv"]
-    paths: ["scripts/probe/**", ".github/workflows/probe-sources.yml"]
+    paths: ["scripts/export_books.py", ".github/workflows/probe-sources.yml"]
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -10,5 +10,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install requests
-      - run: python scripts/probe/probe_sources.py
+      - run: pip install -r requirements.txt
+      - run: python scripts/export_books.py --out /tmp/books.json
+      - run: |
+          python - <<'PY'
+          import json
+          d = json.load(open("/tmp/books.json"))
+          for kind in ("manga", "webtoon"):
+              xs = [x for x in d["manga"] if x["kind"] == kind]
+              print(f"--- {kind}: {len(xs)} | min score {min(x['score'] for x in xs)} | min votes {min(x['votes'] for x in xs)}")
+              for x in xs[:12]:
+                  print(x["score"], x["votes"], x["members"], x["country"], x["status"], x["volumes"], "|", x["title"], "|", x["alt"], "|", x["genres"])
+          print(json.dumps(d["manga"][0], ensure_ascii=False)[:1200])
+          PY
