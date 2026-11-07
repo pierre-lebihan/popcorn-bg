@@ -78,7 +78,7 @@ T = [
     ("Quai d'Orsay", "bd", "series", "Christophe Blain, Abel Lanzac", 2010, 2, ["fauve:2013:tome 2"]),
     ("Come Prima", "bd", "oneshot", "Alfred", 2013, None, ["fauve:2014"]),
     ("L'Arabe du futur", "bd", "series", "Riad Sattouf", 2014, 6, ["fauve:2015"]),
-    ("Ici", "comics", "oneshot", "Richard McGuire", 2014, None, ["fauve:2016", "moustique:2024:n°95"]),
+    ("Ici", "comics", "oneshot", "Richard McGuire", 2014, None, ["fauve:2016", "moustique:2024:n°95"], {"hc": "Here McGuire"}),
     ("Paysage après la bataille", "bd", "oneshot", "Éric Lambé, Philippe de Pierpont", 2016, None, ["fauve:2017"]),
     ("La Saga de Grimr", "bd", "oneshot", "Jérémie Moreau", 2017, None, ["fauve:2018"]),
     ("Moi, ce que j'aime, c'est les monstres", "comics", "series", "Emil Ferris", 2017, 2, ["fauve:2019", "moustique:2024:n°10"],
@@ -105,7 +105,7 @@ T = [
     ("The Nice House on the Lake", "comics", "series", "James Tynion IV, Álvaro Martínez Bueno", 2021, None, ["serie:2024"]),
 
     # ---- Grand Prix de la critique ACBD
-    ("Moi, assassin", "bd", "oneshot", "Antonio Altarriba, Keko", 2014, None, ["acbd:2015"]),
+    ("Moi, assassin", "bd", "oneshot", "Antonio Altarriba, Keko", 2014, None, ["acbd:2015"], {"hc": "I, Assassin Altarriba"}),
     ("Préférence système", "bd", "oneshot", "Ugo Bienvenu", 2019, None, ["acbd:2020"]),
     ("Peau d'homme", "bd", "oneshot", "Hubert, Zanzim", 2020, None, ["acbd:2021"]),
     ("René.e aux bois dormants", "bd", "oneshot", "Elene Usdin", 2021, None, ["acbd:2022"]),

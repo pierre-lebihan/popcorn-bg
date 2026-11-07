@@ -8,6 +8,7 @@
 //   dans public.popcorn_user_state, avec possibilité de relier un compte TMDB en 1 clic depuis l'app.
 // - Section Lecture : les mangas / webtoons lus sont lus et écrits sur le compte AniList de chacun
 //   (jeton OAuth AniList stocké dans public.popcorn_user_state, relié en 1 clic depuis l'app).
+// - Section Lecture : les BD & comics lus sont stockés dans public.popcorn_user_state (colonne bd).
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -210,7 +211,7 @@ async function fetchAllPages(path: string, sessionId: string): Promise<any[]> {
 async function getDbUserState(u: HouseholdMember) {
   const { data } = await adminSb
     .from("popcorn_user_state")
-    .select("movies, locked_tv, episodes, hidden_movies")
+    .select("movies, locked_tv, episodes, hidden_movies, bd")
     .eq("email", u.email)
     .maybeSingle();
 
@@ -222,6 +223,7 @@ async function getDbUserState(u: HouseholdMember) {
     hiddenMovies: (data?.hidden_movies ?? []) as number[],
     lockedTv: (data?.locked_tv ?? []) as number[],
     episodes: (data?.episodes ?? {}) as Record<string, [number, number, number][]>,
+    bd: (data?.bd ?? {}) as BdState,
   };
 }
 
@@ -268,10 +270,10 @@ async function getUserState(u: HouseholdMember) {
   await saveDbUserState(u, res);
   const { data: hid } = await adminSb
     .from("popcorn_user_state")
-    .select("hidden_movies")
+    .select("hidden_movies, bd")
     .eq("email", u.email)
     .maybeSingle();
-  return { ...res, hiddenMovies: (hid?.hidden_movies ?? []) as number[] };
+  return { ...res, hiddenMovies: (hid?.hidden_movies ?? []) as number[], bd: (hid?.bd ?? {}) as BdState };
 }
 
 const rate = (path: string, sid: string, value: number) =>
@@ -610,6 +612,22 @@ async function withManga<T extends object>(u: HouseholdMember, base: T) {
   };
 }
 
+// ---------- BD & comics (lectures stockées dans Supabase) ----------
+
+// { id: [statut, dernier tome lu, indices des albums lus] }
+type BdState = Record<string, [string, number, number[]]>;
+const BD_STATUSES = new Set(["read", "reading", "hidden"]);
+
+async function setBd(u: HouseholdMember, id: string, status: string | null, volume: number, albums: number[]) {
+  const { data } = await adminSb.from("popcorn_user_state").select("bd").eq("email", u.email).maybeSingle();
+  const bd: BdState = { ...((data?.bd ?? {}) as BdState) };
+  if (status) bd[id] = [status, volume, albums];
+  else delete bd[id];
+  await adminSb
+    .from("popcorn_user_state")
+    .upsert({ email: u.email, name: u.name, bd, updated_at: new Date().toISOString() }, { onConflict: "email" });
+}
+
 // ---------- Handler ----------
 
 Deno.serve(async (req) => {
@@ -699,6 +717,22 @@ Deno.serve(async (req) => {
       const status = payload.status ? String(payload.status) : null;
       await setManga(me, mediaId, status, Number(payload.volume ?? 0));
       return json(req, { ok: true, user: await withManga(me, await getDbUserState(me)) });
+    }
+
+    // 2d. Lecture : marquer une BD / un comics (lu, en cours jusqu'au tome N ou albums cochés, masqué, ou rien)
+    if (payload.action === "set_bd") {
+      const id = String(payload.id ?? "");
+      if (!/^[a-z0-9-]{1,80}$/.test(id)) throw new HttpError(400, "id invalide");
+      const status = payload.status ? String(payload.status) : null;
+      if (status && !BD_STATUSES.has(status)) throw new HttpError(400, "statut invalide");
+      const volume = Math.max(0, Math.min(999, Math.floor(Number(payload.volume ?? 0)) || 0));
+      const albums = (Array.isArray(payload.albums) ? payload.albums : [])
+        .map((x: unknown) => Math.floor(Number(x)))
+        .filter((x: number) => Number.isInteger(x) && x >= 0 && x < 500)
+        .slice(0, 500);
+      await setBd(me, id, status, volume, [...new Set<number>(albums)].sort((a, b) => a - b));
+      const state = await getDbUserState(me);
+      return json(req, { ok: true, user: { ...state, anilistLinked: Boolean(me.anilistToken && me.anilistUserId) } });
     }
 
     // 3. Cocher / décocher un film, une série, une saison ou un épisode (ou masquer un film)

@@ -5,7 +5,8 @@ Génère docs/bd.json : classement BD & comics à partir du référentiel figé 
 - Le référentiel (prix et palmarès de critiques) est mis à jour à la main de temps en temps
   (scripts/build_bd_referentiel.py). Sa date est affichée dans l'app.
 - Score de consensus = somme des points des citations (Fauve d'or 5, Prix de la série / ACBD / Eisner série 4,
-  autres 3, classique ajouté à la main 1) + bonus selon la note des lecteurs Hardcover (si HARDCOVER_TOKEN).
+  autres 3, classique ajouté à la main 1 ; une même source compte au plus 2 fois par titre)
+  + bonus selon la note des lecteurs Hardcover (si HARDCOVER_TOKEN).
 - Paliers : Chef-d'œuvre (≥ 8), Incontournable (≥ 4), Recommandé.
 - Les « lus » ne sont PAS ici : ils sont dans Supabase (colonne bd de popcorn_user_state).
 
@@ -103,7 +104,11 @@ def main() -> None:
     out = []
     hc_ok = 0
     for it in ref["titles"]:
-        points = sum(sources[c["src"]]["points"] for c in it["cites"])
+        # Une même source compte au plus 2 fois par titre (Saga a 4 Eisner : on ne veut pas qu'il écrase tout)
+        per_src: dict[str, int] = {}
+        for c in it["cites"]:
+            per_src[c["src"]] = per_src.get(c["src"], 0) + 1
+        points = sum(sources[k]["points"] * min(n, 2) for k, n in per_src.items())
         hc = None
         if token:
             try:

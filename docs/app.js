@@ -40,6 +40,7 @@
 
   let DATA = { movies: [], series: [], providers: [], region: "BG", generatedAt: "" };
   let BOOKS = { manga: [], generatedAt: "" };
+  let BD = { bd: [], sources: {}, generatedAt: "", referentialUpdatedAt: "" };
   const ITEM_MAP = new Map();
 
   /* ---------------- Household state (vus TMDB de chacun) ---------------- */
@@ -64,6 +65,8 @@
     const manga = new Map();
     if (raw.manga) Object.entries(raw.manga).forEach(([k, v]) => manga.set(Number(k), v));
     const keepManga = !raw.manga && prev;
+    const bd = new Map();
+    if (raw.bd) Object.entries(raw.bd).forEach(([k, v]) => bd.set(String(k), v));
     return {
       email: String(raw.email || "").toLowerCase(),
       name: raw.name || raw.email,
@@ -75,7 +78,8 @@
       anilistLinked: keepManga ? prev.anilistLinked : Boolean(raw.anilistLinked),
       anilistName: keepManga ? prev.anilistName : raw.anilistName || "",
       anilistError: keepManga ? prev.anilistError : raw.anilistError || "",
-      manga: keepManga ? prev.manga : manga // Map<mediaId, [statut, tome]>
+      manga: keepManga ? prev.manga : manga, // Map<mediaId, [statut, tome]>
+      bd: !raw.bd && prev ? prev.bd : bd // Map<id référentiel, [statut, tome, albums lus]>
     };
   }
 
@@ -92,7 +96,8 @@
       episodes,
       anilistLinked: Boolean(u.anilistLinked),
       anilistName: u.anilistName || "",
-      manga: Object.fromEntries(u.manga || new Map())
+      manga: Object.fromEntries(u.manga || new Map()),
+      bd: Object.fromEntries(u.bd || new Map())
     };
   }
 
@@ -201,10 +206,19 @@
     return (user && user.manga && user.manga.get(item.id)) || null;
   }
 
+  // BD : [statut, dernier tome lu, indices des albums lus] ou null
+  function bdEntry(user, item) {
+    return (user && user.bd && user.bd.get(item.id)) || null;
+  }
+
+  function readEntry(user, item) {
+    return item.type === "bd" ? bdEntry(user, item) : mangaEntry(user, item);
+  }
+
   function statusOf(user, item) {
     if (!user) return "unwatched";
-    if (item.type === "manga") {
-      const e = mangaEntry(user, item);
+    if (item.type === "manga" || item.type === "bd") {
+      const e = readEntry(user, item);
       if (!e) return "unwatched";
       if (e[0] === "read") return "watched";
       if (e[0] === "hidden") return "locked";
@@ -266,6 +280,7 @@
     advOpen: false,
     catchupWho: "me",
     bookKind: "all",
+    shelf: "manga",
 
     epSeriesId: null,
     epFilter: "unwatched",
@@ -368,8 +383,10 @@
 
   function prepareItem(item) {
     item._key = item.type + ":" + item.id;
-    if (item.type === "manga") {
-      item._search = norm([item.title, item.alt, item.year, (item.genres || []).join(" "), item.overview].join(" "));
+    if (item.type === "manga" || item.type === "bd") {
+      item._search = norm(
+        [item.title, item.alt, item.authors, item.year, (item.genres || []).join(" "), item.overview].join(" ")
+      );
       ITEM_MAP.set(item._key, item);
       return;
     }
@@ -666,12 +683,24 @@
 
   // Onglet Lecture : configuration du classement affiché
   function readingSource() {
-    return BOOKS.manga || [];
+    return state.shelf === "bd" ? BD.bd || [] : BOOKS.manga || [];
   }
   function readingShelfRow() {
-    return "";
+    return (
+      '<div class="chip-scroll">' +
+      chip("set-shelf", "manga", "🇯🇵 Mangas &amp; webtoons", state.shelf !== "bd") +
+      chip("set-shelf", "bd", "🇪🇺 BD &amp; comics", state.shelf === "bd") +
+      "</div>"
+    );
   }
   function readingKinds() {
+    if (state.shelf === "bd") {
+      return [
+        ["all", "📚 Tous"],
+        ["bd", "🇪🇺 BD"],
+        ["comics", "🇺🇸 Comics"]
+      ];
+    }
     return [
       ["all", "📚 Tous"],
       ["manga", "🇯🇵 Mangas"],
@@ -679,6 +708,14 @@
     ];
   }
   function readingSorts() {
+    if (state.shelf === "bd") {
+      return [
+        ["imdb", "🏆 Score critique"],
+        ["hc", "⭐ Note Hardcover"],
+        ["votes", "🔥 Nombre de notes"],
+        ["year", "📅 Plus récents"]
+      ];
+    }
     return [
       ["imdb", "⭐ Note AniList"],
       ["votes", "🔥 Nombre de notes"],
@@ -687,6 +724,16 @@
     ];
   }
   function readingPresets() {
+    if (state.shelf === "bd") {
+      return [
+        ["none", "Tous"],
+        ["masterpiece", "🏆 Chefs-d'œuvre"],
+        ["prized", "🥇 Primés"],
+        ["series", "📚 Séries"],
+        ["oneshot", "📕 One-shots"],
+        ["recent", "🆕 Depuis 2015"]
+      ];
+    }
     return [
       ["none", "Tous"],
       ["masterpiece", "⭐ Chefs-d'œuvre (8.8+)"],
@@ -712,11 +759,44 @@
   }
 
   function readingLabel(user, item) {
-    const e = mangaEntry(user, item);
+    const e = readEntry(user, item);
     if (!e) return "";
     if (e[0] === "read") return "✅ Lu";
     if (e[0] === "hidden") return "🙈 Masqué";
+    if (item.type === "bd" && item.mode === "albums") {
+      const n = (e[2] || []).length;
+      return "📖 " + n + (bdAlbumCount(item) ? "/" + bdAlbumCount(item) : "") + " album" + (n > 1 ? "s" : "");
+    }
     return "📖 " + (e[1] ? "Tome " + e[1] : "En cours");
+  }
+
+  const ptsLabel = (n) => n + (n > 1 ? " pts" : " pt");
+  const TIER_LABEL = { chef: "🏆 Chef-d'œuvre", incontournable: "⭐ Incontournable", recommande: "👍 Recommandé" };
+
+  function bdAlbumCount(item) {
+    return (item.albums && item.albums.length) || item.volumes || 0;
+  }
+
+  function bdKindLabel(item) {
+    return item.kind === "comics" ? "🇺🇸 Comics" : "🇪🇺 BD";
+  }
+
+  function bdModeLabel(item) {
+    if (item.mode === "oneshot") return "One-shot";
+    if (item.mode === "albums") return (bdAlbumCount(item) ? bdAlbumCount(item) + " albums" : "Albums") + " indépendants";
+    return item.volumes ? "Série · " + item.volumes + " tomes" : "Série à suivre";
+  }
+
+  function citeLabel(c) {
+    const src = (BD.sources || {})[c.src] || {};
+    return (src.short || c.src) + (c.year && c.src !== "moustique" ? " " + c.year : "") + (c.note ? " (" + c.note + ")" : "");
+  }
+
+  function fmtDateFr(iso) {
+    if (!iso) return "";
+    const d = new Date(String(iso).length <= 10 ? iso + "T12:00:00" : iso);
+    if (isNaN(d)) return "";
+    return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
   }
 
   /* ---------------- Init ---------------- */
@@ -747,6 +827,14 @@
       BOOKS = { manga: [], generatedAt: "" }; // pas encore généré : l'onglet Lecture sera vide
     }
     (BOOKS.manga || []).forEach(prepareItem);
+    try {
+      const res = await fetch("./bd.json?t=" + Date.now(), { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      BD = await res.json();
+    } catch (_) {
+      BD = { bd: [], sources: {}, generatedAt: "", referentialUpdatedAt: "" };
+    }
+    (BD.bd || []).forEach(prepareItem);
   }
 
   let reloading = false;
@@ -1029,7 +1117,8 @@
   function getFilteredList(forTab) {
     const tab = forTab || state.tab;
     const reading = tab === "reading";
-    const source = reading ? BOOKS.manga || [] : tab === "movies" ? DATA.movies : DATA.series;
+    const source = reading ? readingSource() : tab === "movies" ? DATA.movies : DATA.series;
+    const bdShelf = reading && state.shelf === "bd";
     const qNorm = norm(state.q.trim());
     const validStatuses = statusOptions().map((o) => o[0]);
     const status = validStatuses.includes(state.status) ? state.status : validStatuses[0];
@@ -1038,6 +1127,16 @@
       if (!matchStatus(item, status)) return false;
 
       if (state.genre !== "all" && !(item.genres || []).includes(state.genre)) return false;
+      if (bdShelf) {
+        if (state.bookKind !== "all" && item.kind !== state.bookKind) return false;
+        if (state.preset === "masterpiece" && item.tier !== "chef") return false;
+        if (state.preset === "prized" && !(item.cites || []).some((c) => c.src !== "classique" && c.src !== "moustique")) return false;
+        if (state.preset === "series" && item.mode === "oneshot") return false;
+        if (state.preset === "oneshot" && item.mode !== "oneshot") return false;
+        if (state.preset === "recent" && Number(item.year || 0) < 2015) return false;
+        if (qNorm && !item._search.includes(qNorm)) return false;
+        return true;
+      }
       if (reading) {
         if (state.bookKind !== "all" && item.kind !== state.bookKind) return false;
         if (state.preset === "masterpiece" && (item.score || 0) < 8.8) return false;
@@ -1077,6 +1176,7 @@
     filtered.sort((a, b) => {
       if (state.sort === "votes") return (b.votes || 0) - (a.votes || 0) || (scoreOf(b) - scoreOf(a));
       if (state.sort === "year") return Number(b.year || 0) - Number(a.year || 0) || (scoreOf(b) - scoreOf(a));
+      if (state.sort === "hc") return (b.hcRating || 0) - (a.hcRating || 0) || (b.votes || 0) - (a.votes || 0);
       if (state.sort === "members") return (b.members || 0) - (a.members || 0) || (scoreOf(b) - scoreOf(a));
       if (state.sort === "tmdb") return (b.tmdb || 0) - (a.tmdb || 0) || (scoreOf(b) - scoreOf(a));
       return scoreOf(b) - scoreOf(a) || (b.votes || 0) - (a.votes || 0);
@@ -1116,7 +1216,8 @@
     const st = loggedIn() ? "todoBoth" : "all";
     document.getElementById("badgeMovies").textContent = DATA.movies.filter((x) => matchStatus(x, st)).length;
     document.getElementById("badgeSeries").textContent = DATA.series.filter((x) => matchStatus(x, st)).length;
-    document.getElementById("badgeReading").textContent = (BOOKS.manga || []).filter((x) => matchStatus(x, st)).length || "–";
+    document.getElementById("badgeReading").textContent =
+      [...(BOOKS.manga || []), ...(BD.bd || [])].filter((x) => matchStatus(x, st)).length || "–";
     document.getElementById("badgeCatchup").textContent = loggedIn() ? catchupList(me()).length : "–";
     document.querySelectorAll("#mainTabs .tab-btn").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.tab === state.tab);
@@ -1162,7 +1263,9 @@
 
     const reading = state.tab === "reading";
     elSearchInput.placeholder = reading
-      ? "Rechercher un manga, un webtoon, un genre…"
+      ? state.shelf === "bd"
+        ? "Rechercher une BD, un comics, un auteur…"
+        : "Rechercher un manga, un webtoon, un genre…"
       : state.tab === "movies"
       ? "Rechercher un film VF/VO, genre, année…"
       : "Rechercher une série VF/VO, genre, année…";
@@ -1332,7 +1435,7 @@
 
   function whoPill(user, item) {
     const st = statusOf(user, item);
-    if (item.type === "manga") {
+    if (item.type === "manga" || item.type === "bd") {
       return (
         '<span class="who-pill ' + st + '">' + esc(user.name) + " " + esc(readingLabel(user, item) || "–") + "</span>"
       );
@@ -1353,7 +1456,52 @@
     return '<div class="who-row">' + HH.users.map((u) => whoPill(u, item)).join("") + "</div>";
   }
 
+  function renderBdCard(item, idx) {
+    const m = me();
+    const myStatus = statusOf(m, item);
+    const posterHtml = item.cover
+      ? '<img src="' + esc(item.cover) + '" alt="' + esc(item.title) + '" loading="lazy" />'
+      : '<div class="poster-fallback">' + (item.kind === "comics" ? "🦸" : "📖") + "</div>";
+    let cornerHtml = "";
+    if (m && myStatus !== "unwatched") {
+      const cls = myStatus === "watched" ? "vu" : myStatus === "locked" ? "locked" : "catchup";
+      cornerHtml = '<div class="status-corner ' + cls + '">' + esc(readingLabel(m, item)) + "</div>";
+    }
+    const isMuted = m && (myStatus === "watched" || myStatus === "locked") && state.status === "all";
+    const cites = (item.cites || []).filter((c) => c.src !== "classique");
+    const citeTxt = cites.length
+      ? cites.slice(0, 2).map(citeLabel).join(" · ") + (cites.length > 2 ? " · +" + (cites.length - 2) : "")
+      : "Classique (sans prix recensé)";
+    return (
+      '<article class="media-card ' +
+      (isMuted ? "is-vu" : "") +
+      '" data-action="open-modal" data-key="' +
+      esc(item._key) +
+      '"><div class="poster-wrap">' +
+      posterHtml +
+      '<div class="rank-badge">#' +
+      (idx + 1) +
+      "</div>" +
+      cornerHtml +
+      '</div><div class="card-body"><div class="card-title-row"><span class="card-title">' +
+      esc(item.title) +
+      '</span><span class="card-year">' +
+      esc(item.year) +
+      "</span></div>" +
+      '<div class="card-orig">' + esc(item.authors) + "</div>" +
+      '<div class="scores-row"><span class="tier-pill ' + esc(item.tier) + '">' + esc(TIER_LABEL[item.tier] || "") + " · " + ptsLabel(item.score) + "</span>" +
+      (item.hcRating ? '<span class="badge-tmdb">★ ' + fmt1(item.hcRating) + "/5" + (item.votes ? " (" + fmtVotes(item.votes) + ")" : "") + "</span>" : "") +
+      "</div>" +
+      '<div class="meta-tags"><span class="kind-pill ' + esc(item.kind) + '">' + esc(bdKindLabel(item)) + "</span>" +
+      '<span class="genre-pill">' + esc(bdModeLabel(item)) + "</span></div>" +
+      '<div class="cite-line">' + esc(citeTxt) + "</div>" +
+      whoRow(item) +
+      "</div></article>"
+    );
+  }
+
   function renderBookCard(item, idx) {
+    if (item.type === "bd") return renderBdCard(item, idx);
     const m = me();
     const myStatus = statusOf(m, item);
     const posterHtml = item.cover
@@ -1406,7 +1554,7 @@
   }
 
   function renderCard(item, idx) {
-    if (item.type === "manga") return renderBookCard(item, idx);
+    if (item.type === "manga" || item.type === "bd") return renderBookCard(item, idx);
     const posterHtml = item.poster
       ? '<img src="' + IMG_SM + esc(item.poster) + '" alt="' + esc(item.title) + '" loading="lazy" />'
       : '<div class="poster-fallback">' + (item.type === "movie" ? "🎬" : "📺") + "</div>";
@@ -1518,7 +1666,20 @@
 
     let html = loginHint();
 
-    if (state.tab === "reading") {
+    if (state.tab === "reading" && state.shelf === "bd") {
+      if (!(BD.bd || []).length) {
+        elMainContent.innerHTML =
+          html +
+          '<div class="empty-state"><div class="emoji">📚</div><div>Le classement BD &amp; comics n\'est pas encore généré (<code>bd.json</code>).</div></div>';
+        return;
+      }
+      html +=
+        '<div class="ref-banner" data-action="bd-sources">🏆 Référentiel critiques mis à jour le <strong>' +
+        esc(fmtDateFr(BD.referentialUpdatedAt)) +
+        "</strong> · prix d'Angoulême, Eisner, ACBD, palmarès de presse" +
+        (BD.generatedAt && (BD.bd || []).some((x) => x.hcRating) ? " · notes Hardcover du " + esc(fmtDateFr(BD.generatedAt)) : "") +
+        ' <span class="ref-more">Sources →</span></div>';
+    } else if (state.tab === "reading") {
       const m = me();
       if (m && !m.anilistLinked) {
         html +=
@@ -1874,7 +2035,7 @@
   /* ---------------- Fiche détail / compte ---------------- */
 
   function openModal(key, fromRandom) {
-    if (key !== "__account__" && !ITEM_MAP.get(key)) return;
+    if (key !== "__account__" && key !== "__bdsources__" && !ITEM_MAP.get(key)) return;
     const item = ITEM_MAP.get(key);
     state.modalKey = key;
     state.modalFromRandom = Boolean(fromRandom);
@@ -1922,7 +2083,10 @@
               " en cours · " +
               (u.anilistLinked
                 ? [...(u.manga || new Map()).values()].filter((x) => x[0] === "read").length + " mangas lus"
-                : "AniList non relié")
+                : "AniList non relié") +
+              " · " +
+              [...(u.bd || new Map()).values()].filter((x) => x[0] === "read").length +
+              " BD lues"
           )
           .join("<br/>") +
         "</p></div>";
@@ -2081,6 +2245,177 @@
     return html;
   }
 
+  function renderBdTracking(item) {
+    const m = me();
+    if (!m) {
+      return AUTH_ENABLED
+        ? '<div class="sheet-section"><button type="button" class="btn-toggle" data-action="login" style="width:100%">🔑 Connexion Google pour cocher « lu »</button></div>'
+        : "";
+    }
+    const o = other();
+    let html = '<div class="sheet-section"><div class="sheet-section-title"><span>Ma lecture (' + esc(m.name) + ")</span>";
+    if (o) html += whoPill(o, item);
+    html += "</div>";
+    const e = bdEntry(m, item);
+    const st = e ? e[0] : null;
+    const k = esc(item._key);
+    html += '<div class="toggle-row">';
+    html +=
+      '<button type="button" class="btn-toggle ' + (st === "read" ? "on" : "") + '" data-action="bd-set" data-st="read" data-key="' + k + '">' +
+      (st === "read" ? "✅ Lu — toucher pour annuler" : item.mode === "oneshot" ? "✅ Lu" : "✅ Tout lu") +
+      "</button>";
+    if (item.mode === "series") {
+      html +=
+        '<button type="button" class="btn-toggle ' + (st === "reading" ? "on" : "") + '" data-action="bd-set" data-st="reading" data-key="' + k + '">' +
+        (st === "reading" ? "📖 En cours — annuler" : "📖 En cours") +
+        "</button>";
+    }
+    html +=
+      '<button type="button" class="btn-toggle warn ' + (st === "hidden" ? "on" : "") + '" data-action="bd-set" data-st="hidden" data-key="' + k + '">' +
+      (st === "hidden" ? "🙉 Ne plus masquer" : "🙈 Masquer (pas pour moi)") +
+      "</button></div>";
+    if (item.mode === "series" && st === "reading") {
+      html +=
+        '<div class="tome-row"><span>Lu jusqu\'au tome</span><input type="number" min="0" inputmode="numeric" class="tome-input" id="tomeInput" value="' +
+        (e[1] || "") +
+        '" placeholder="–" />' +
+        (item.volumes ? "<span>/ " + item.volumes + "</span>" : "") +
+        '<button type="button" class="chip active" data-action="bd-tome" data-key="' + k + '">Enregistrer</button></div>';
+    }
+    if (item.mode === "albums" && st !== "hidden") {
+      const n = bdAlbumCount(item);
+      const done = new Set(st === "read" ? Array.from({ length: n }, (_, i) => i) : (e && e[2]) || []);
+      if (n) {
+        html +=
+          '<div class="sheet-section-title" style="margin-top:12px"><span>Albums lus (' + done.size + "/" + n + ")</span></div>" +
+          '<div class="album-list">';
+        for (let i = 0; i < n; i++) {
+          const name = (item.albums && item.albums[i]) || "Album " + (i + 1);
+          html +=
+            '<button type="button" class="album-row ' + (done.has(i) ? "on" : "") + '" data-action="bd-album" data-idx="' + i + '" data-key="' + k + '">' +
+            '<span class="album-check">' + (done.has(i) ? "✅" : "⬜") + "</span>" +
+            '<span class="album-num">' + (i + 1) + "</span><span>" + esc(name) + "</span></button>";
+        }
+        html += "</div>";
+      }
+    }
+    html += "</div>";
+    return html;
+  }
+
+  function renderBdModal(item) {
+    const posterHtml = item.cover
+      ? '<img src="' + esc(item.cover) + '" alt="' + esc(item.title) + '" />'
+      : '<div class="poster-fallback">' + (item.kind === "comics" ? "🦸" : "📖") + "</div>";
+    let html = '<div class="sheet-handle"></div>';
+    if (state.modalFromRandom) {
+      html +=
+        '<div class="random-bar"><span>🎲 Tiré au sort dans ta sélection</span>' +
+        '<button type="button" class="btn-random" data-action="reroll-random" style="padding:4px 10px;font-size:12px">🎲 Relancer</button></div>';
+    }
+    html += '<div class="sheet-top"><div class="sheet-poster">' + posterHtml + "</div>";
+    html += '<button type="button" class="sheet-close" data-action="close-modal" aria-label="Fermer">✕</button>';
+    html += '<div class="sheet-info"><div class="sheet-title">' + esc(item.title) + "</div>";
+    html += '<div class="card-orig" style="white-space:normal">' + esc(item.authors) + "</div>";
+    html +=
+      '<div class="scores-row" style="margin-top:2px"><span class="tier-pill ' + esc(item.tier) + '">' + esc(TIER_LABEL[item.tier] || "") + " · " + ptsLabel(item.score) + "</span>" +
+      (item.hcRating ? '<span class="badge-tmdb">★ ' + fmt1(item.hcRating) + "/5 Hardcover" + (item.votes ? " (" + fmtVotes(item.votes) + ")" : "") + "</span>" : "") +
+      '<span class="card-year">' + esc(item.year) + "</span></div>";
+    html +=
+      '<div class="meta-tags"><span class="kind-pill ' + esc(item.kind) + '">' + esc(bdKindLabel(item)) + "</span>" +
+      '<span class="genre-pill">' + esc(bdModeLabel(item)) + "</span>" +
+      (item.genres || []).map((g) => '<span class="genre-pill">' + esc(g) + "</span>").join("") +
+      "</div>";
+    html += whoRow(item);
+    html += "</div></div>";
+    if (item.hcUrl) {
+      html += '<div class="sheet-actions"><a class="btn-action" href="' + esc(item.hcUrl) + '" target="_blank" rel="noopener">📚 Hardcover</a></div>';
+    }
+    html += renderBdTracking(item);
+    const srcs = BD.sources || {};
+    html += '<div class="sheet-section"><div class="sheet-section-title"><span>Pourquoi ce score</span></div><ul class="cite-list">';
+    const seen = {};
+    (item.cites || []).forEach((c) => {
+      const src = srcs[c.src] || {};
+      seen[c.src] = (seen[c.src] || 0) + 1;
+      const pts = seen[c.src] > 2 ? 0 : src.points || 0;
+      html +=
+        "<li>" +
+        (src.url ? '<a href="' + esc(src.url) + '" target="_blank" rel="noopener">' + esc(citeLabel(c)) + "</a>" : esc(citeLabel(c))) +
+        ' <span class="cite-pts">+' + pts + "</span>" + (seen[c.src] > 2 ? ' <span class="cite-line" style="display:inline">(plafond : 2 par source)</span>' : "") + "</li>";
+    });
+    if (item.bonus) {
+      html += "<li>Note des lecteurs Hardcover " + fmt1(item.hcRating) + '/5 <span class="cite-pts">+' + item.bonus + "</span></li>";
+    }
+    html += "</ul></div>";
+    if (item.overview) {
+      html +=
+        '<div class="sheet-section"><div class="sheet-section-title"><span>Résumé (Hardcover)</span></div><p class="sheet-overview" style="white-space:pre-line">' +
+        esc(item.overview) +
+        "</p></div>";
+    }
+    elModalSheet.innerHTML = html;
+  }
+
+  function renderBdSources() {
+    const srcs = BD.sources || {};
+    let html = '<div class="sheet-handle"></div><div class="sheet-top"><div class="sheet-info"><div class="sheet-title">🏆 Référentiel BD &amp; comics</div>';
+    html += '<div class="card-orig" style="white-space:normal">Mis à jour le ' + esc(fmtDateFr(BD.referentialUpdatedAt)) + " · " + (BD.bd || []).length + " titres</div></div>";
+    html += '<button type="button" class="sheet-close" data-action="close-modal" aria-label="Fermer">✕</button></div>';
+    html +=
+      '<div class="sheet-section"><p class="sheet-overview">Aucun site de notes BD fiable n\'a d\'API ouverte. Ce classement repose donc sur un référentiel figé : les prix et palmarès ci-dessous, relevés à la main et rafraîchis de temps en temps. Chaque citation rapporte des points (une même source compte au plus 2 fois par titre) ; la note des lecteurs Hardcover ajoute jusqu\'à 2 points. Paliers : Chef-d\'œuvre dès 8 points, Incontournable dès 4.</p><ul class="cite-list">';
+    Object.values(srcs).forEach((src) => {
+      html +=
+        "<li>" + (src.url ? '<a href="' + esc(src.url) + '" target="_blank" rel="noopener">' + esc(src.label) + "</a>" : esc(src.label)) +
+        ' <span class="cite-pts">+' + src.points + "</span></li>";
+    });
+    html += "</ul></div>";
+    elModalSheet.innerHTML = html;
+  }
+
+  function doSetBd(item, status, volume, albums) {
+    const u = me();
+    if (!u) {
+      toast("Connecte-toi pour cocher tes lectures", true);
+      return;
+    }
+    const vol = Math.max(0, Math.floor(Number(volume) || 0));
+    let alb = [...new Set((albums || []).map((x) => Math.floor(Number(x))))].filter((x) => x >= 0).sort((a, b) => a - b);
+    if (status === "reading" && item.mode === "albums" && bdAlbumCount(item) && alb.length >= bdAlbumCount(item)) {
+      status = "read";
+      alb = [];
+    }
+    if (status === "reading" && item.mode === "albums" && !alb.length) status = null;
+    if (status) u.bd.set(item.id, [status, vol, alb]);
+    else u.bd.delete(item.id);
+    saveCache();
+    renderAll();
+    if (state.modalKey) renderModalContent();
+
+    HH.pending++;
+    renderAccountButton();
+    writeQueue = writeQueue
+      .then(() => callFn("POST", { action: "set_bd", id: item.id, status: status || null, volume: vol, albums: alb }))
+      .then((res) => {
+        HH.pending--;
+        if (HH.pending === 0 && res && res.user) {
+          HH.users = HH.users.map((x) =>
+            x.email === String(res.user.email || "").toLowerCase() ? normalizeUser(res.user, x) : x
+          );
+          saveCache();
+          renderAll();
+          if (state.modalKey) renderModalContent();
+        } else {
+          renderAccountButton();
+        }
+      })
+      .catch((err) => {
+        HH.pending--;
+        toast("⚠️ Échec de l'enregistrement : " + err.message, true);
+        if (HH.pending === 0) refreshState(true);
+      });
+  }
+
   function renderMangaModal(item) {
     const posterHtml = item.cover
       ? '<img src="' + esc(item.cover) + '" alt="' + esc(item.title) + '" />'
@@ -2131,10 +2466,18 @@
       renderAccountSheet();
       return;
     }
+    if (state.modalKey === "__bdsources__") {
+      renderBdSources();
+      return;
+    }
     const item = ITEM_MAP.get(state.modalKey);
     if (!item) return;
     if (item.type === "manga") {
       renderMangaModal(item);
+      return;
+    }
+    if (item.type === "bd") {
+      renderBdModal(item);
       return;
     }
     const m = me();
@@ -2378,6 +2721,44 @@
         state.bookKind = val;
         renderAll();
         break;
+      case "set-shelf":
+        if (state.shelf === val) break;
+        state.shelf = val;
+        state.bookKind = "all";
+        state.genre = "all";
+        state.preset = "none";
+        state.sort = "imdb";
+        state.showAllLimit = false;
+        renderAll();
+        break;
+      case "bd-sources":
+        openModal("__bdsources__");
+        break;
+      case "bd-set": {
+        if (!item) break;
+        const want = target.dataset.st;
+        const cur = bdEntry(me(), item);
+        if (cur && cur[0] === want) doSetBd(item, null, 0, []);
+        else doSetBd(item, want, want === "reading" && cur ? cur[1] : 0, []);
+        break;
+      }
+      case "bd-tome": {
+        if (!item) break;
+        const inp = document.getElementById("tomeInput");
+        doSetBd(item, "reading", inp ? inp.value : 0, []);
+        break;
+      }
+      case "bd-album": {
+        if (!item) break;
+        const idx = Number(target.dataset.idx);
+        const cur = bdEntry(me(), item);
+        const n = bdAlbumCount(item);
+        const done = new Set(cur && cur[0] === "read" ? Array.from({ length: n }, (_, i) => i) : (cur && cur[2]) || []);
+        if (done.has(idx)) done.delete(idx);
+        else done.add(idx);
+        doSetBd(item, "reading", 0, [...done]);
+        break;
+      }
       case "link-anilist":
         startAnilistLink();
         break;
