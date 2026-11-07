@@ -1,0 +1,14 @@
+name: Probe reading sources (temporary)
+on:
+  push:
+    branches: ["claude/project-thread-40i5jv"]
+    paths: ["scripts/probe/**", ".github/workflows/probe-sources.yml"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install requests
+      - run: python scripts/probe/probe_sources.py
