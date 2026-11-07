@@ -244,6 +244,7 @@
   const elAdvCount = $("advCount");
   const elQuickChips = $("quickChips");
   const elAdvPanel = $("advPanel");
+  const elAdvBackdrop = $("advBackdrop");
   const elMainContent = $("mainContent");
   const elModalBackdrop = $("modalBackdrop");
   const elModalSheet = $("modalSheet");
@@ -917,9 +918,16 @@
     );
   }
 
+  function syncAdvOverlay(open) {
+    elAdvPanel.classList.toggle("open", open);
+    if (elAdvBackdrop) elAdvBackdrop.classList.toggle("open", open);
+    document.body.classList.toggle("adv-open", open);
+  }
+
   function renderToolbar() {
     if (state.tab === "catchup") {
       elMainToolbar.style.display = "none";
+      syncAdvOverlay(false);
       return;
     }
     elMainToolbar.style.display = "flex";
@@ -928,34 +936,50 @@
       elSearchInput.placeholder = "Filtrer un épisode (ex: Callister, S3E7, Cornichon…)";
       elBtnAdvToggle.style.display = "none";
       elQuickChips.style.display = "none";
-      elAdvPanel.classList.remove("open");
+      syncAdvOverlay(false);
       return;
     }
 
     elSearchInput.placeholder =
       state.tab === "movies" ? "Rechercher un film VF/VO, genre, année…" : "Rechercher une série VF/VO, genre, année…";
     elBtnAdvToggle.style.display = "inline-flex";
-    elQuickChips.style.display = "flex";
 
     const advCount = getActiveAdvancedCount();
     elAdvCount.textContent = advCount > 0 ? "· " + advCount : "";
     elBtnAdvToggle.classList.toggle("active", state.advOpen || advCount > 0);
-    elAdvPanel.classList.toggle("open", state.advOpen);
+    syncAdvOverlay(state.advOpen);
+    elQuickChips.style.display = state.advOpen ? "none" : "flex";
 
     const opts = statusOptions();
     const curStatus = opts.some((o) => o[0] === state.status) ? state.status : opts[0][0];
-    let chipsHtml = "";
-    if (opts.length > 1) {
-      opts.forEach(([val, lbl]) => (chipsHtml += chip("set-status", val, esc(lbl), curStatus === val)));
-      chipsHtml += '<span class="chip-sep"></span>';
-    }
-    chipsHtml += chip("prov-all", "", "Toutes plateformes", state.providers.size === 0);
+    const items = state.tab === "movies" ? DATA.movies || [] : DATA.series || [];
+    const totalCount = items.length;
+    const allLabel = totalCount ? "Catalogue complet (" + totalCount + ")" : "Catalogue complet";
+
+    const sortMap = {
+      imdb: "⭐ Note IMDb",
+      votes: "🔥 Popularité",
+      year: "📅 Plus récents",
+      tmdb: "💙 Note TMDB"
+    };
+    const presetMap = {
+      masterpiece: "⭐ Chefs-d'œuvre (8.5+)",
+      gem: "💎 Pépites (< 50k)",
+      classic: "🏛️ Classiques (200k+)",
+      recent: "🆕 Sorties 2023+",
+      miniseries: "⚡ Format court",
+      episodic: "🎭 Sitcoms & Antho."
+    };
+
+    // Ligne 1 : Plateformes + filtres avancés actifs (supprimables en 1 toucher) + bouton Tous les filtres
+    let row1 = '<div class="chip-scroll">';
+    row1 += chip("prov-all", "", "Toutes", state.providers.size === 0);
     [
       ["Netflix", "prov-netflix", "dot-netflix"],
       ["Prime Video", "prov-prime", "dot-prime"],
       ["Apple TV", "prov-apple", "dot-apple"]
     ].forEach(([pName, cls, dotCls]) => {
-      chipsHtml += chip(
+      row1 += chip(
         "prov-toggle",
         pName,
         '<span class="dot ' + dotCls + '"></span>' + esc(pName),
@@ -963,11 +987,33 @@
         cls
       );
     });
-    elQuickChips.innerHTML = chipsHtml;
+
+    if (state.genre !== "all") {
+      row1 += chip("set-genre", "all", "🎭 " + esc(state.genre) + " ✕", false, "active-pill");
+    }
+    if (state.preset !== "none" && presetMap[state.preset]) {
+      row1 += chip("set-preset", state.preset, esc(presetMap[state.preset]) + " ✕", false, "active-pill");
+    }
+    if (state.sort !== "imdb" && sortMap[state.sort]) {
+      row1 += chip("set-sort", "imdb", esc(sortMap[state.sort]) + " ✕", false, "active-pill");
+    }
+    if (state.showAllLimit) {
+      row1 += chip("set-limit", "top50", "📋 Tout (" + totalCount + ") ✕", false, "active-pill");
+    }
+    row1 += chip("toggle-adv", "", "⚙️ Genres & Tri…", false, "more-filters");
+    row1 += "</div>";
+
+    // Ligne 2 : Statut (« Qui a vu ? »)
+    let row2 = "";
+    if (opts.length > 1) {
+      row2 = '<div class="chip-scroll">';
+      opts.forEach(([val, lbl]) => (row2 += chip("set-status", val, esc(lbl), curStatus === val)));
+      row2 += "</div>";
+    }
+    elQuickChips.innerHTML = row1 + row2;
 
     if (!state.advOpen) return;
 
-    const items = state.tab === "movies" ? DATA.movies : DATA.series;
     const genreCounts = {};
     items.forEach((it) => (it.genres || []).forEach((g) => (genreCounts[g] = (genreCounts[g] || 0) + 1)));
     const sortedGenres = Object.keys(genreCounts).sort((a, b) => genreCounts[b] - genreCounts[a]);
@@ -984,35 +1030,68 @@
       presets.push(["episodic", "🎭 Sitcoms & Anthologies"]);
     }
 
-    let advHtml = '<div class="adv-group"><div class="adv-label-row"><span>Tri &amp; Portée</span>';
-    if (advCount > 0 || state.providers.size > 0) {
-      advHtml += '<button type="button" class="btn-reset" data-action="reset-filters">Réinitialiser tout</button>';
+    const defStatus = loggedIn() ? "todoBoth" : "all";
+    const hasAnyFilter = advCount > 0 || state.providers.size > 0 || curStatus !== defStatus || state.q.trim().length > 0;
+    const matchCount = getFilteredList(state.tab).length;
+
+    let advHtml = "";
+
+    if (opts.length > 1) {
+      advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Qui a vu ? (Statut)</span></div><div class="chip-wrap">';
+      opts.forEach(([val, lbl]) => (advHtml += chip("set-status", val, esc(lbl), curStatus === val)));
+      advHtml += "</div></div>";
     }
-    advHtml += '</div><div class="chip-scroll">';
+
+    advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Plateformes</span></div><div class="chip-wrap">';
+    advHtml += chip("prov-all", "", "Toutes plateformes", state.providers.size === 0);
+    [
+      ["Netflix", "prov-netflix", "dot-netflix"],
+      ["Prime Video", "prov-prime", "dot-prime"],
+      ["Apple TV", "prov-apple", "dot-apple"]
+    ].forEach(([pName, cls, dotCls]) => {
+      advHtml += chip(
+        "prov-toggle",
+        pName,
+        '<span class="dot ' + dotCls + '"></span>' + esc(pName),
+        state.providers.has(pName),
+        cls
+      );
+    });
+    advHtml += "</div></div>";
+
+    advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Tri &amp; Portée</span></div><div class="chip-wrap">';
     [
       ["imdb", "⭐ Note IMDb"],
       ["votes", "🔥 Popularité (votes)"],
       ["year", "📅 Plus récents"],
       ["tmdb", "💙 Note TMDB"]
     ].forEach(([val, lbl]) => (advHtml += chip("set-sort", val, lbl, state.sort === val)));
-    const totalCount = data ? (state.tab === "movies" ? data.movies.length : data.series.length) : 0;
-    const allLabel = totalCount ? "Catalogue complet (" + totalCount + ")" : "Catalogue complet";
     advHtml += '<span class="chip-sep"></span>';
     advHtml += chip("set-limit", "top50", "Top 50", !state.showAllLimit);
     advHtml += chip("set-limit", "all", allLabel, state.showAllLimit);
     advHtml += "</div></div>";
 
-    const arrowsHtml =
-      '<div class="scroll-arrows"><button type="button" class="btn-scroll-arrow" data-scroll-dir="-1" title="Défiler à gauche">‹</button><button type="button" class="btn-scroll-arrow" data-scroll-dir="1" title="Défiler à droite">›</button></div>';
-
-    advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Sélections rapides</span>' + arrowsHtml + '</div><div class="chip-scroll">';
+    advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Sélections rapides</span></div><div class="chip-wrap">';
     presets.forEach(([val, lbl]) => (advHtml += chip("set-preset", val, lbl, state.preset === val)));
     advHtml += "</div></div>";
 
-    advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Genres</span>' + arrowsHtml + '</div><div class="chip-scroll">';
+    advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Genres</span></div><div class="chip-wrap">';
     advHtml += chip("set-genre", "all", "Tous", state.genre === "all");
     sortedGenres.forEach((g) => (advHtml += chip("set-genre", g, esc(g) + " (" + genreCounts[g] + ")", state.genre === g)));
     advHtml += "</div></div>";
+
+    advHtml += '<div class="adv-footer">';
+    if (hasAnyFilter) {
+      advHtml += '<button type="button" class="btn-reset" data-action="reset-filters">↺ Réinitialiser tout</button>';
+    } else {
+      advHtml += '<span></span>';
+    }
+    advHtml +=
+      '<button type="button" class="btn-adv-apply" data-action="close-adv">Voir les ' +
+      matchCount +
+      " " +
+      (matchCount > 1 ? "résultats" : "résultat") +
+      " ✓</button></div>";
 
     elAdvPanel.innerHTML = advHtml;
   }
@@ -1386,7 +1465,7 @@
       '">Fiche série ↗</button></div>';
 
     const p = m ? progress(m, current) : null;
-    html += '<div class="chip-scroll">';
+    html += '<div class="chip-scroll chip-mobile-wrap">';
     if (m) {
       html += chip("ep-filter", "unwatched", "À voir", state.epFilter === "unwatched");
       html += chip("ep-filter", "all", "Tous (" + current.episodes.length + ")", state.epFilter === "all");
@@ -1405,7 +1484,7 @@
     if ((current.releasedSeasons || []).length > 1) {
       html +=
         '<div class="adv-label-row" style="margin:8px 0 3px"><span>Saisons</span><div class="scroll-arrows"><button type="button" class="btn-scroll-arrow" data-scroll-dir="-1" title="Défiler à gauche">‹</button><button type="button" class="btn-scroll-arrow" data-scroll-dir="1" title="Défiler à droite">›</button></div></div>';
-      html += '<div class="chip-scroll">' + chip("ep-season", "all", "Toutes saisons", state.epSeason === "all");
+      html += '<div class="chip-scroll chip-mobile-wrap">' + chip("ep-season", "all", "Toutes saisons", state.epSeason === "all");
       current.releasedSeasons.forEach((sn) => {
         const sc = (current.seasonScores || {})[String(sn)];
         html += chip(
@@ -1615,7 +1694,7 @@
       const op = o ? progress(o, item) : null;
       html +=
         '<div class="adv-label-row" style="margin:12px 0 6px"><span>Saisons — touche pour cocher / décocher</span><div class="scroll-arrows"><button type="button" class="btn-scroll-arrow" data-scroll-dir="-1" title="Défiler à gauche">‹</button><button type="button" class="btn-scroll-arrow" data-scroll-dir="1" title="Défiler à droite">›</button></div></div>';
-      html += '<div class="chip-scroll">';
+      html += '<div class="chip-scroll chip-mobile-wrap">';
       rel.forEach((sn) => {
         const sc = (item.seasonScores || {})[String(sn)];
         const on = p.ws.has(sn);
@@ -1712,7 +1791,7 @@
       html +=
         '<div class="sheet-section"><div class="sheet-section-title"><span>Épisodes notés IMDb</span><div class="scroll-arrows"><button type="button" class="btn-scroll-arrow" data-scroll-dir="-1" title="Défiler à gauche">‹</button><button type="button" class="btn-scroll-arrow" data-scroll-dir="1" title="Défiler à droite">›</button></div>';
       html += '<button type="button" class="btn-reset" data-action="jump-episodes" data-id="' + item.id + '">Ouvrir dans 🎯 Épisodes →</button></div>';
-      html += '<div class="chip-scroll">' + chip("modal-season", "all", "Toutes (" + item.releasedSeasons.length + ")", state.modalSeasonFilter === "all");
+      html += '<div class="chip-scroll chip-mobile-wrap">' + chip("modal-season", "all", "Toutes (" + item.releasedSeasons.length + ")", state.modalSeasonFilter === "all");
       (item.releasedSeasons || []).forEach((sn) => {
         const sc = (item.seasonScores || {})[String(sn)];
         html += chip(
@@ -1722,7 +1801,7 @@
           String(state.modalSeasonFilter) === String(sn)
         );
       });
-      html += '</div><div class="chip-scroll" style="margin-top:9px;margin-bottom:8px">';
+      html += '</div><div class="chip-scroll chip-mobile-wrap" style="margin-top:9px;margin-bottom:8px">';
       if (m) {
         html += chip("modal-ep-filter", "unwatched", "À voir", state.modalEpFilter === "unwatched");
         html += chip("modal-ep-filter", "all", "Tous (" + item.episodes.length + ")", state.modalEpFilter === "all");
@@ -1803,6 +1882,7 @@
     const btn = e.target.closest(".tab-btn");
     if (!btn || btn.dataset.tab === state.tab) return;
     state.tab = btn.dataset.tab;
+    state.advOpen = false;
     if (state.tab === "movies" && (state.preset === "miniseries" || state.preset === "episodic")) state.preset = "none";
     window.scrollTo({ top: 0, behavior: "instant" });
     renderAll();
@@ -1812,7 +1892,10 @@
     state.q = elSearchInput.value;
     elSearchClear.classList.toggle("visible", state.q.length > 0);
     if (state.tab === "episodes") renderEpisodesTab();
-    else renderMoviesOrSeries();
+    else {
+      renderMoviesOrSeries();
+      if (state.advOpen) renderToolbar();
+    }
   });
 
   elSearchClear.addEventListener("click", () => {
@@ -1827,6 +1910,23 @@
     state.advOpen = !state.advOpen;
     renderToolbar();
   });
+
+  if (elAdvBackdrop) {
+    elAdvBackdrop.addEventListener("click", () => {
+      state.advOpen = false;
+      renderToolbar();
+    });
+  }
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      const y = window.scrollY;
+      if (y > 48) document.body.classList.add("is-scrolled");
+      else if (y < 14) document.body.classList.remove("is-scrolled");
+    },
+    { passive: true }
+  );
 
   elBtnRandom.addEventListener("click", pickRandom);
   $("btnReload").addEventListener("click", reloadAll);
@@ -1846,6 +1946,14 @@
     const item = target.dataset.key ? ITEM_MAP.get(target.dataset.key) : null;
 
     switch (action) {
+      case "toggle-adv":
+        state.advOpen = !state.advOpen;
+        renderToolbar();
+        break;
+      case "close-adv":
+        state.advOpen = false;
+        renderToolbar();
+        break;
       case "set-status":
         state.status = val;
         state.statusTouched = true;
@@ -2014,7 +2122,13 @@
     if (e.target === elModalBackdrop) closeModal(false);
   });
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeModal(false);
+    if (e.key === "Escape") {
+      if (elModalBackdrop.classList.contains("open")) closeModal(false);
+      else if (state.advOpen) {
+        state.advOpen = false;
+        renderToolbar();
+      }
+    }
   });
   window.addEventListener("popstate", () => {
     if (elModalBackdrop.classList.contains("open")) closeModal(true);
