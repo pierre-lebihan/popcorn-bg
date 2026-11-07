@@ -1447,6 +1447,74 @@
       color: #7dd3fc;
     }
     .kind-pill.webtoon { background: rgba(52, 211, 153, 0.14); color: #6ee7b7; }
+    .kind-pill.bd { background: rgba(251, 191, 36, 0.14); color: #fcd34d; }
+    .kind-pill.comics { background: rgba(248, 113, 113, 0.14); color: #fca5a5; }
+
+    .tier-pill {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: rgba(148, 163, 184, 0.14);
+      color: #cbd5e1;
+    }
+    .tier-pill.chef { background: rgba(245, 197, 24, 0.18); color: #fde68a; }
+    .tier-pill.incontournable { background: rgba(56, 189, 248, 0.14); color: #7dd3fc; }
+
+    .cite-line {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.35;
+    }
+
+    .ref-banner {
+      font-size: 12.5px;
+      color: var(--text-dim);
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 12px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    .ref-banner strong { color: var(--text); }
+    .ref-more { color: #7dd3fc; white-space: nowrap; }
+
+    .cite-list {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+    .cite-list a { color: #7dd3fc; text-decoration: none; }
+    .cite-pts { color: #fde68a; font-weight: 700; font-size: 12px; }
+
+    .album-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .album-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-align: left;
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--bg-elev);
+      color: var(--text-dim);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .album-row.on { color: var(--text); border-color: rgba(52, 211, 153, 0.4); }
+    .album-num { color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 18px; }
 
     .tome-row {
       display: flex;

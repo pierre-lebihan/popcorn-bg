@@ -1,0 +1,2891 @@
+{
+ "updatedAt": "2026-11-07",
+ "sources": {
+  "fauve": {
+   "label": "Fauve d'or, meilleur album d'Angoulême",
+   "short": "Fauve d'or",
+   "points": 5,
+   "url": "https://fr.wikipedia.org/wiki/Fauve_d'or_:_prix_du_meilleur_album"
+  },
+  "serie": {
+   "label": "Prix de la série, Angoulême",
+   "short": "Prix de la série Angoulême",
+   "points": 4,
+   "url": "https://en.wikipedia.org/wiki/Angoul%C3%AAme_International_Comics_Festival_Prize_for_a_Series"
+  },
+  "acbd": {
+   "label": "Grand Prix de la critique ACBD",
+   "short": "Grand Prix ACBD",
+   "points": 4,
+   "url": "https://www.acbd.fr/"
+  },
+  "eisner_serie": {
+   "label": "Eisner, meilleure série",
+   "short": "Eisner série",
+   "points": 4,
+   "url": "https://en.wikipedia.org/wiki/Eisner_Award_for_Best_Continuing_Series"
+  },
+  "eisner_mini": {
+   "label": "Eisner, meilleure mini-série",
+   "short": "Eisner mini-série",
+   "points": 3,
+   "url": "https://en.wikipedia.org/wiki/Eisner_Award_for_Best_Limited_Series"
+  },
+  "eisner_intl": {
+   "label": "Eisner, meilleure BD étrangère publiée aux États-Unis",
+   "short": "Eisner international",
+   "points": 3,
+   "url": "https://en.wikipedia.org/wiki/Eisner_Award_for_Best_U.S._Edition_of_International_Material"
+  },
+  "moustique": {
+   "label": "Moustique, les 100 meilleures BD (centenaire, 2024)",
+   "short": "Top 100 Moustique",
+   "points": 3,
+   "url": "https://comicsbeat.com/maus-tops-belgian-magazine-moustique-100-best-comics-list"
+  },
+  "classique": {
+   "label": "Classique ajouté à la main (sans prix recensé)",
+   "short": "Classique",
+   "points": 1,
+   "url": ""
+  }
+ },
+ "titles": [
+  {
+   "id": "corto-maltese",
+   "title": "Corto Maltese",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Hugo Pratt",
+   "year": 1967,
+   "volumes": 12,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1976,
+     "note": "La Ballade de la mer salée"
+    }
+   ]
+  },
+  {
+   "id": "alack-sinner",
+   "title": "Alack Sinner",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "José Muñoz, Carlos Sampayo",
+   "year": 1975,
+   "volumes": 8,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1978,
+     "note": ""
+    },
+    {
+     "src": "fauve",
+     "year": 1983,
+     "note": "Flic ou privé"
+    }
+   ]
+  },
+  {
+   "id": "paracuellos",
+   "title": "Paracuellos",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Carlos Giménez",
+   "year": 1977,
+   "volumes": 6,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1981,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "silence",
+   "title": "Silence",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Didier Comès",
+   "year": 1980,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1981,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "jonathan",
+   "title": "Jonathan",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Cosey",
+   "year": 1975,
+   "volumes": 17,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1982,
+     "note": "Kate"
+    }
+   ]
+  },
+  {
+   "id": "les-cites-obscures",
+   "title": "Les Cités obscures",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "François Schuiten, Benoît Peeters",
+   "year": 1983,
+   "volumes": 12,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1985,
+     "note": "La Fièvre d'Urbicande"
+    },
+    {
+     "src": "eisner_intl",
+     "year": 2022,
+     "note": "L'Ombre d'un homme"
+    }
+   ]
+  },
+  {
+   "id": "la-femme-du-magicien",
+   "title": "La Femme du magicien",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "François Boucq, Jerome Charyn",
+   "year": 1986,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1986,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "torpedo",
+   "title": "Torpedo",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Jordi Bernet, Enrique Sánchez Abulí",
+   "year": 1982,
+   "volumes": 15,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1986,
+     "note": "Chaud devant !"
+    }
+   ]
+  },
+  {
+   "id": "un-ete-indien",
+   "title": "Un été indien",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Milo Manara, Hugo Pratt",
+   "year": 1986,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1987,
+     "note": ""
+    },
+    {
+     "src": "eisner_intl",
+     "year": 2012,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "maus",
+   "title": "Maus",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Art Spiegelman",
+   "year": 1986,
+   "volumes": 2,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1988,
+     "note": "tome 1"
+    },
+    {
+     "src": "fauve",
+     "year": 1993,
+     "note": "tome 2"
+    },
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°1"
+    }
+   ]
+  },
+  {
+   "id": "theodore-poussin",
+   "title": "Théodore Poussin",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Frank Le Gall",
+   "year": 1987,
+   "volumes": 13,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1989,
+     "note": "Marie-Vérité"
+    }
+   ]
+  },
+  {
+   "id": "watchmen",
+   "title": "Watchmen",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Alan Moore, Dave Gibbons",
+   "year": 1987,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1989,
+     "note": ""
+    },
+    {
+     "src": "eisner_mini",
+     "year": 1988,
+     "note": ""
+    },
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°19"
+    }
+   ]
+  },
+  {
+   "id": "v-pour-vendetta",
+   "title": "V pour Vendetta",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Alan Moore, David Lloyd",
+   "year": 1989,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1990,
+     "note": ""
+    },
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°4"
+    }
+   ]
+  },
+  {
+   "id": "le-chemin-de-l-amerique",
+   "title": "Le Chemin de l'Amérique",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Baru, Jean-Marc Thévenet",
+   "year": 1990,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1991,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "calvin-et-hobbes",
+   "title": "Calvin et Hobbes",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Bill Watterson",
+   "year": 1987,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1992,
+     "note": "Adieu, monde cruel !"
+    }
+   ]
+  },
+  {
+   "id": "basil-et-victoria",
+   "title": "Basil et Victoria",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Édith, Yann",
+   "year": 1991,
+   "volumes": 6,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1993,
+     "note": "Jack"
+    }
+   ]
+  },
+  {
+   "id": "trait-de-craie",
+   "title": "Trait de craie",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Miguelanxo Prado",
+   "year": 1993,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1994,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "le-cahier-bleu",
+   "title": "Le Cahier bleu",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "André Juillard",
+   "year": 1994,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1995,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "jonas-fink",
+   "title": "Jonas Fink",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Vittorio Giardino",
+   "year": 1994,
+   "volumes": 3,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1995,
+     "note": "L'Enfance"
+    }
+   ]
+  },
+  {
+   "id": "l-autoroute-du-soleil",
+   "title": "L'Autoroute du soleil",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Baru",
+   "year": 1995,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1996,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "bone",
+   "title": "Bone",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Jeff Smith",
+   "year": 1991,
+   "volumes": 9,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1996,
+     "note": "La Forêt sans retour"
+    },
+    {
+     "src": "eisner_serie",
+     "year": 1994,
+     "note": ""
+    },
+    {
+     "src": "eisner_serie",
+     "year": 1995,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "le-silence-de-malka",
+   "title": "Le Silence de Malka",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Ruben Pellejero, Jorge Zentner",
+   "year": 1996,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1997,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "leon-la-came",
+   "title": "Léon la came",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Nicolas de Crécy, Sylvain Chomet",
+   "year": 1995,
+   "volumes": 3,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1998,
+     "note": "Laid, pauvre et malade"
+    }
+   ]
+  },
+  {
+   "id": "fax-de-sarajevo",
+   "title": "Fax de Sarajevo",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Joe Kubert",
+   "year": 1996,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1998,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "monsieur-jean",
+   "title": "Monsieur Jean",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Dupuy, Berberian",
+   "year": 1991,
+   "volumes": 7,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1999,
+     "note": "Vivons heureux sans en avoir l'air"
+    }
+   ]
+  },
+  {
+   "id": "cages",
+   "title": "Cages",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Dave McKean",
+   "year": 1998,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 1999,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "ibicus",
+   "title": "Ibicus",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Pascal Rabaté",
+   "year": 1998,
+   "volumes": 4,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2000,
+     "note": "tome 2"
+    }
+   ]
+  },
+  {
+   "id": "isaac-le-pirate",
+   "title": "Isaac le pirate",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Christophe Blain",
+   "year": 2001,
+   "volumes": 5,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2002,
+     "note": "Les Amériques"
+    }
+   ]
+  },
+  {
+   "id": "jimmy-corrigan",
+   "title": "Jimmy Corrigan",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Chris Ware",
+   "year": 2000,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2003,
+     "note": ""
+    },
+    {
+     "src": "eisner_serie",
+     "year": 1996,
+     "note": "Acme Novelty Library"
+    },
+    {
+     "src": "eisner_serie",
+     "year": 2000,
+     "note": "Acme Novelty Library"
+    }
+   ]
+  },
+  {
+   "id": "le-combat-ordinaire",
+   "title": "Le Combat ordinaire",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Manu Larcenet",
+   "year": 2003,
+   "volumes": 4,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2004,
+     "note": ""
+    },
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°44"
+    }
+   ]
+  },
+  {
+   "id": "poulet-aux-prunes",
+   "title": "Poulet aux prunes",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Marjane Satrapi",
+   "year": 2004,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2005,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "notes-pour-une-histoire-de-guerre",
+   "title": "Notes pour une histoire de guerre",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Gipi",
+   "year": 2004,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2006,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "la-ou-vont-nos-peres",
+   "title": "Là où vont nos pères",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Shaun Tan",
+   "year": 2006,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2008,
+     "note": ""
+    },
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°31"
+    }
+   ]
+  },
+  {
+   "id": "pinocchio",
+   "title": "Pinocchio",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Winshluss",
+   "year": 2008,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2009,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "pascal-brutal",
+   "title": "Pascal Brutal",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Riad Sattouf",
+   "year": 2006,
+   "volumes": 4,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2010,
+     "note": "Plus fort que les plus forts"
+    }
+   ]
+  },
+  {
+   "id": "cinq-mille-kilometres-par-seconde",
+   "title": "Cinq mille kilomètres par seconde",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Manuele Fior",
+   "year": 2010,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2011,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "chroniques-de-jerusalem",
+   "title": "Chroniques de Jérusalem",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Guy Delisle",
+   "year": 2011,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2012,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "quai-d-orsay",
+   "title": "Quai d'Orsay",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Christophe Blain, Abel Lanzac",
+   "year": 2010,
+   "volumes": 2,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2013,
+     "note": "tome 2"
+    }
+   ]
+  },
+  {
+   "id": "come-prima",
+   "title": "Come Prima",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Alfred",
+   "year": 2013,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2014,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "l-arabe-du-futur",
+   "title": "L'Arabe du futur",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Riad Sattouf",
+   "year": 2014,
+   "volumes": 6,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2015,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "ici",
+   "title": "Ici",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Richard McGuire",
+   "year": 2014,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2016,
+     "note": ""
+    },
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°95"
+    }
+   ],
+   "hc": "Here McGuire"
+  },
+  {
+   "id": "paysage-apres-la-bataille",
+   "title": "Paysage après la bataille",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Éric Lambé, Philippe de Pierpont",
+   "year": 2016,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2017,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "la-saga-de-grimr",
+   "title": "La Saga de Grimr",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Jérémie Moreau",
+   "year": 2017,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2018,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "moi-ce-que-j-aime-c-est-les-monstres",
+   "title": "Moi, ce que j'aime, c'est les monstres",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Emil Ferris",
+   "year": 2017,
+   "volumes": 2,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2019,
+     "note": ""
+    },
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°10"
+    }
+   ],
+   "hc": "My Favorite Thing Is Monsters"
+  },
+  {
+   "id": "revolution",
+   "title": "Révolution",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Florent Grouazel, Younn Locard",
+   "year": 2019,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2020,
+     "note": "Liberté"
+    }
+   ]
+  },
+  {
+   "id": "l-accident-de-chasse",
+   "title": "L'Accident de chasse",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Landis Blair, David L. Carlson",
+   "year": 2020,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2021,
+     "note": ""
+    }
+   ],
+   "hc": "The Hunting Accident"
+  },
+  {
+   "id": "ecoute-jolie-marcia",
+   "title": "Écoute, jolie Márcia",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Marcello Quintanilha",
+   "year": 2021,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2022,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "la-couleur-des-choses",
+   "title": "La Couleur des choses",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Martin Panchaud",
+   "year": 2022,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2023,
+     "note": ""
+    },
+    {
+     "src": "acbd",
+     "year": 2023,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "monica",
+   "title": "Monica",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Daniel Clowes",
+   "year": 2023,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2024,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "deux-filles-nues",
+   "title": "Deux filles nues",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Luz",
+   "year": 2024,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "fauve",
+     "year": 2025,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "jerome-k-jerome-bloche",
+   "title": "Jérôme K. Jérôme Bloche",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Alain Dodier",
+   "year": 1985,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "serie",
+     "year": 2010,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "il-etait-une-fois-en-france",
+   "title": "Il était une fois en France",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Fabien Nury, Sylvain Vallée",
+   "year": 2007,
+   "volumes": 6,
+   "cites": [
+    {
+     "src": "serie",
+     "year": 2011,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "cite-14",
+   "title": "Cité 14",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Pierre Gabus, Romuald Reutimann",
+   "year": 2007,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "serie",
+     "year": 2012,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "aama",
+   "title": "Aâma",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Frederik Peeters",
+   "year": 2011,
+   "volumes": 4,
+   "cites": [
+    {
+     "src": "serie",
+     "year": 2013,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "lastman",
+   "title": "Lastman",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Bastien Vivès, Balak, Michaël Sanlaville",
+   "year": 2013,
+   "volumes": 12,
+   "cites": [
+    {
+     "src": "serie",
+     "year": 2015,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "miss-marvel",
+   "title": "Miss Marvel",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "G. Willow Wilson, Adrian Alphona",
+   "year": 2014,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "serie",
+     "year": 2016,
+     "note": ""
+    }
+   ],
+   "hc": "Ms. Marvel"
+  },
+  {
+   "id": "megg-mogg-owl",
+   "title": "Megg, Mogg & Owl",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Simon Hanselmann",
+   "year": 2014,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "serie",
+     "year": 2018,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "dansker",
+   "title": "Dansker",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Halfdan Pisket",
+   "year": 2014,
+   "volumes": 3,
+   "cites": [
+    {
+     "src": "serie",
+     "year": 2019,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "paul",
+   "title": "Paul",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Michel Rabagliati",
+   "year": 1999,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "serie",
+     "year": 2021,
+     "note": "Paul à la maison"
+    }
+   ]
+  },
+  {
+   "id": "spirou-ou-l-espoir-malgre-tout",
+   "title": "Spirou ou l'espoir malgré tout",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Émile Bravo",
+   "year": 2018,
+   "volumes": 4,
+   "cites": [
+    {
+     "src": "serie",
+     "year": 2022,
+     "note": ""
+    },
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°17"
+    }
+   ]
+  },
+  {
+   "id": "the-nice-house-on-the-lake",
+   "title": "The Nice House on the Lake",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "James Tynion IV, Álvaro Martínez Bueno",
+   "year": 2021,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "serie",
+     "year": 2024,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "moi-assassin",
+   "title": "Moi, assassin",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Antonio Altarriba, Keko",
+   "year": 2014,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "acbd",
+     "year": 2015,
+     "note": ""
+    }
+   ],
+   "hc": "I, Assassin Altarriba"
+  },
+  {
+   "id": "preference-systeme",
+   "title": "Préférence système",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Ugo Bienvenu",
+   "year": 2019,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "acbd",
+     "year": 2020,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "peau-d-homme",
+   "title": "Peau d'homme",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Hubert, Zanzim",
+   "year": 2020,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "acbd",
+     "year": 2021,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "rene-e-aux-bois-dormants",
+   "title": "René.e aux bois dormants",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Elene Usdin",
+   "year": 2021,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "acbd",
+     "year": 2022,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "le-ciel-dans-la-tete",
+   "title": "Le Ciel dans la tête",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Antonio Altarriba, Sergio García Sánchez",
+   "year": 2023,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "acbd",
+     "year": 2024,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "concrete",
+   "title": "Concrete",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Paul Chadwick",
+   "year": 1987,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 1988,
+     "note": ""
+    },
+    {
+     "src": "eisner_serie",
+     "year": 1989,
+     "note": ""
+    },
+    {
+     "src": "eisner_mini",
+     "year": 1992,
+     "note": "Fragile Creature"
+    }
+   ]
+  },
+  {
+   "id": "sandman",
+   "title": "Sandman",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Neil Gaiman",
+   "year": 1989,
+   "volumes": 10,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 1991,
+     "note": ""
+    },
+    {
+     "src": "eisner_serie",
+     "year": 1992,
+     "note": ""
+    },
+    {
+     "src": "eisner_serie",
+     "year": 1993,
+     "note": ""
+    }
+   ],
+   "hc": "The Sandman"
+  },
+  {
+   "id": "astro-city",
+   "title": "Astro City",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Kurt Busiek, Brent Anderson",
+   "year": 1995,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 1997,
+     "note": ""
+    },
+    {
+     "src": "eisner_serie",
+     "year": 1998,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "preacher",
+   "title": "Preacher",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Garth Ennis, Steve Dillon",
+   "year": 1995,
+   "volumes": 9,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 1999,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "top-10",
+   "title": "Top 10",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Alan Moore, Gene Ha, Zander Cannon",
+   "year": 1999,
+   "volumes": 2,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2001,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "100-bullets",
+   "title": "100 Bullets",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Brian Azzarello, Eduardo Risso",
+   "year": 1999,
+   "volumes": 13,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2002,
+     "note": ""
+    },
+    {
+     "src": "eisner_serie",
+     "year": 2004,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "daredevil-bendis-maleev",
+   "title": "Daredevil (Bendis & Maleev)",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Brian Michael Bendis, Alex Maleev",
+   "year": 2001,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2003,
+     "note": ""
+    }
+   ],
+   "hc": "Daredevil Bendis Maleev"
+  },
+  {
+   "id": "the-goon",
+   "title": "The Goon",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Eric Powell",
+   "year": 1999,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2005,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "astonishing-x-men-whedon",
+   "title": "Astonishing X-Men (Whedon)",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Joss Whedon, John Cassaday",
+   "year": 2004,
+   "volumes": 4,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2006,
+     "note": ""
+    }
+   ],
+   "hc": "Astonishing X-Men Whedon"
+  },
+  {
+   "id": "all-star-superman",
+   "title": "All-Star Superman",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Grant Morrison, Frank Quitely",
+   "year": 2005,
+   "volumes": 2,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2007,
+     "note": ""
+    },
+    {
+     "src": "eisner_serie",
+     "year": 2009,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "y-le-dernier-homme",
+   "title": "Y, le dernier homme",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Brian K. Vaughan, Pia Guerra",
+   "year": 2002,
+   "volumes": 10,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2008,
+     "note": ""
+    }
+   ],
+   "hc": "Y: The Last Man"
+  },
+  {
+   "id": "the-walking-dead",
+   "title": "The Walking Dead",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Robert Kirkman, Charlie Adlard",
+   "year": 2003,
+   "volumes": 32,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2010,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "chew",
+   "title": "Chew",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "John Layman, Rob Guillory",
+   "year": 2009,
+   "volumes": 12,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2011,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "daredevil-waid",
+   "title": "Daredevil (Waid)",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Mark Waid, Marcos Martín, Paolo Rivera",
+   "year": 2011,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2012,
+     "note": ""
+    }
+   ],
+   "hc": "Daredevil Mark Waid"
+  },
+  {
+   "id": "saga",
+   "title": "Saga",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Brian K. Vaughan, Fiona Staples",
+   "year": 2012,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2013,
+     "note": ""
+    },
+    {
+     "src": "eisner_serie",
+     "year": 2014,
+     "note": ""
+    },
+    {
+     "src": "eisner_serie",
+     "year": 2015,
+     "note": ""
+    },
+    {
+     "src": "eisner_serie",
+     "year": 2017,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "southern-bastards",
+   "title": "Southern Bastards",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Jason Aaron, Jason Latour",
+   "year": 2014,
+   "volumes": 4,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2016,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "monstress",
+   "title": "Monstress",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Marjorie Liu, Sana Takeda",
+   "year": 2015,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2018,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "giant-days",
+   "title": "Giant Days",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "John Allison, Max Sarin",
+   "year": 2015,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2019,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "bitter-root",
+   "title": "Bitter Root",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "David F. Walker, Chuck Brown, Sanford Greene",
+   "year": 2018,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2020,
+     "note": ""
+    },
+    {
+     "src": "eisner_serie",
+     "year": 2022,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "usagi-yojimbo",
+   "title": "Usagi Yojimbo",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Stan Sakai",
+   "year": 1987,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2021,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "nightwing-taylor-redondo",
+   "title": "Nightwing (Taylor & Redondo)",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Tom Taylor, Bruno Redondo",
+   "year": 2021,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2023,
+     "note": ""
+    }
+   ],
+   "hc": "Nightwing Tom Taylor"
+  },
+  {
+   "id": "transformers-daniel-warren-johnson",
+   "title": "Transformers (Daniel Warren Johnson)",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Daniel Warren Johnson",
+   "year": 2023,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2024,
+     "note": ""
+    }
+   ],
+   "hc": "Transformers Daniel Warren Johnson"
+  },
+  {
+   "id": "santos-sisters",
+   "title": "Santos Sisters",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Greg & Fake, Graham Smith",
+   "year": 2023,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2025,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "absolute-batman",
+   "title": "Absolute Batman",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Scott Snyder, Nick Dragotta",
+   "year": 2024,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_serie",
+     "year": 2026,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "silver-surfer-parabole",
+   "title": "Silver Surfer : Parabole",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Stan Lee, Moebius",
+   "year": 1988,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 1989,
+     "note": ""
+    }
+   ],
+   "hc": "Silver Surfer Parable"
+  },
+  {
+   "id": "give-me-liberty",
+   "title": "Give Me Liberty",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Frank Miller, Dave Gibbons",
+   "year": 1990,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 1991,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "marvels",
+   "title": "Marvels",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Kurt Busiek, Alex Ross",
+   "year": 1994,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 1994,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "sin-city",
+   "title": "Sin City",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Frank Miller",
+   "year": 1991,
+   "volumes": 7,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 1995,
+     "note": "A Dame to Kill For"
+    },
+    {
+     "src": "eisner_mini",
+     "year": 1996,
+     "note": "The Big Fat Kill"
+    }
+   ]
+  },
+  {
+   "id": "kingdom-come",
+   "title": "Kingdom Come",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Mark Waid, Alex Ross",
+   "year": 1996,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 1997,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "batman-un-long-halloween",
+   "title": "Batman : Un long Halloween",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Jeph Loeb, Tim Sale",
+   "year": 1996,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 1998,
+     "note": ""
+    }
+   ],
+   "hc": "Batman: The Long Halloween"
+  },
+  {
+   "id": "300",
+   "title": "300",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Frank Miller, Lynn Varley",
+   "year": 1998,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 1999,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "hellboy",
+   "title": "Hellboy",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Mike Mignola",
+   "year": 1994,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2002,
+     "note": "Conqueror Worm"
+    },
+    {
+     "src": "eisner_mini",
+     "year": 2009,
+     "note": "The Crooked Man"
+    }
+   ]
+  },
+  {
+   "id": "la-ligue-des-gentlemen-extraordinaires",
+   "title": "La Ligue des gentlemen extraordinaires",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Alan Moore, Kevin O'Neill",
+   "year": 1999,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2003,
+     "note": "vol. 2"
+    }
+   ],
+   "hc": "The League of Extraordinary Gentlemen"
+  },
+  {
+   "id": "dc-the-new-frontier",
+   "title": "DC : The New Frontier",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Darwyn Cooke",
+   "year": 2004,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2005,
+     "note": ""
+    }
+   ],
+   "hc": "DC: The New Frontier"
+  },
+  {
+   "id": "seven-soldiers",
+   "title": "Seven Soldiers",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Grant Morrison",
+   "year": 2005,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2006,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "batman-year-100",
+   "title": "Batman : Year 100",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Paul Pope",
+   "year": 2006,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2007,
+     "note": ""
+    }
+   ],
+   "hc": "Batman: Year 100"
+  },
+  {
+   "id": "the-umbrella-academy",
+   "title": "The Umbrella Academy",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Gerard Way, Gabriel Bá",
+   "year": 2007,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2008,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "daytripper",
+   "title": "Daytripper",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Fábio Moon, Gabriel Bá",
+   "year": 2010,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2011,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "criminal",
+   "title": "Criminal",
+   "kind": "comics",
+   "mode": "series",
+   "authors": "Ed Brubaker, Sean Phillips",
+   "year": 2006,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2012,
+     "note": "The Last of the Innocent"
+    }
+   ]
+  },
+  {
+   "id": "the-wake",
+   "title": "The Wake",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Scott Snyder, Sean Murphy",
+   "year": 2013,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2014,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "the-fade-out",
+   "title": "The Fade Out",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Ed Brubaker, Sean Phillips",
+   "year": 2014,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2016,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "vision",
+   "title": "Vision",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Tom King, Gabriel Hernández Walta",
+   "year": 2015,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2017,
+     "note": ""
+    }
+   ],
+   "hc": "The Vision Tom King"
+  },
+  {
+   "id": "mister-miracle",
+   "title": "Mister Miracle",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Tom King, Mitch Gerads",
+   "year": 2017,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2019,
+     "note": ""
+    }
+   ],
+   "hc": "Mister Miracle Tom King"
+  },
+  {
+   "id": "little-bird",
+   "title": "Little Bird",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Darcy Van Poelgeest, Ian Bertram",
+   "year": 2019,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2020,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "superman-s-pal-jimmy-olsen",
+   "title": "Superman's Pal Jimmy Olsen",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Matt Fraction, Steve Lieber",
+   "year": 2019,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2021,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "the-good-asian",
+   "title": "The Good Asian",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Pornsak Pichetshote, Alexandre Tefenkgi",
+   "year": 2021,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2022,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "human-target",
+   "title": "Human Target",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Tom King, Greg Smallwood",
+   "year": 2021,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2023,
+     "note": ""
+    }
+   ],
+   "hc": "The Human Target Tom King"
+  },
+  {
+   "id": "peepee-poopoo",
+   "title": "PeePee PooPoo",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Caroline Cash",
+   "year": 2023,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2024,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "zatanna-bring-down-the-house",
+   "title": "Zatanna : Bring Down the House",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Mariko Tamaki, Javier Rodríguez",
+   "year": 2024,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2025,
+     "note": ""
+    }
+   ],
+   "hc": "Zatanna: Bring Down the House"
+  },
+  {
+   "id": "absolute-martian-manhunter",
+   "title": "Absolute Martian Manhunter",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Deniz Camp, Javier Rodríguez",
+   "year": 2025,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_mini",
+     "year": 2026,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "le-chat-du-rabbin",
+   "title": "Le Chat du rabbin",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Joann Sfar",
+   "year": 2002,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2006,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "le-photographe",
+   "title": "Le Photographe",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Emmanuel Guibert, Didier Lefèvre, Frédéric Lemercier",
+   "year": 2003,
+   "volumes": 3,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2010,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "c-etait-la-guerre-des-tranchees",
+   "title": "C'était la guerre des tranchées",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Jacques Tardi",
+   "year": 1993,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2011,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "blacksad",
+   "title": "Blacksad",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Juan Díaz Canales, Juanjo Guarnido",
+   "year": 2000,
+   "volumes": 7,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2013,
+     "note": "L'Enfer, le silence"
+    },
+    {
+     "src": "eisner_intl",
+     "year": 2015,
+     "note": "Amarillo"
+    },
+    {
+     "src": "eisner_intl",
+     "year": 2023,
+     "note": "Alors, tout tombe (1)"
+    },
+    {
+     "src": "eisner_intl",
+     "year": 2024,
+     "note": "Alors, tout tombe (2)"
+    }
+   ]
+  },
+  {
+   "id": "putain-de-guerre",
+   "title": "Putain de guerre !",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Jacques Tardi, Jean-Pierre Verney",
+   "year": 2008,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2014,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "realiste",
+   "title": "Réaliste",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Asaf Hanuka",
+   "year": 2015,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2016,
+     "note": ""
+    }
+   ],
+   "hc": "The Realist Asaf Hanuka"
+  },
+  {
+   "id": "le-monde-d-edena",
+   "title": "Le Monde d'Edena",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Moebius",
+   "year": 1983,
+   "volumes": 5,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2017,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "cumbe",
+   "title": "Cumbe",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Marcelo D'Salete",
+   "year": 2014,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2018,
+     "note": ""
+    }
+   ],
+   "hc": "Run for It D'Salete"
+  },
+  {
+   "id": "culottees",
+   "title": "Culottées",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Pénélope Bagieu",
+   "year": 2016,
+   "volumes": 2,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2019,
+     "note": ""
+    }
+   ],
+   "hc": "Brazen Rebel Ladies"
+  },
+  {
+   "id": "la-maison",
+   "title": "La Maison",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Paco Roca",
+   "year": 2015,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2020,
+     "note": ""
+    }
+   ],
+   "hc": "The House Paco Roca"
+  },
+  {
+   "id": "goblin-girl",
+   "title": "Goblin Girl",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Moa Romanova",
+   "year": 2018,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2021,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "la-meduse",
+   "title": "La Méduse",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Boum",
+   "year": 2022,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2025,
+     "note": ""
+    }
+   ],
+   "hc": "The Jellyfish Boum"
+  },
+  {
+   "id": "nocturnos",
+   "title": "Nocturnos",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Laura Pérez",
+   "year": 2023,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2026,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "jason-le-gang-de-la-rive-gauche",
+   "title": "Jason : Le Gang de la rive gauche",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Jason",
+   "year": 2005,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2007,
+     "note": ""
+    }
+   ],
+   "hc": "The Left Bank Gang"
+  },
+  {
+   "id": "jason-j-ai-tue-adolf-hitler",
+   "title": "Jason : J'ai tué Adolf Hitler",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Jason",
+   "year": 2006,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2008,
+     "note": ""
+    }
+   ],
+   "hc": "I Killed Adolf Hitler"
+  },
+  {
+   "id": "jason-le-dernier-mousquetaire",
+   "title": "Jason : Le Dernier Mousquetaire",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Jason",
+   "year": 2008,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "eisner_intl",
+     "year": 2009,
+     "note": ""
+    }
+   ],
+   "hc": "The Last Musketeer Jason"
+  },
+  {
+   "id": "spirou-et-fantasio-franquin",
+   "title": "Spirou et Fantasio (Franquin)",
+   "kind": "bd",
+   "mode": "albums",
+   "authors": "André Franquin",
+   "year": 1946,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°2 QRN sur Bretzelburg"
+    },
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°21 Z comme Zorglub"
+    }
+   ],
+   "hc": "Spirou Franquin"
+  },
+  {
+   "id": "le-lierre-et-l-araignee",
+   "title": "Le Lierre et l'Araignée",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Grégoire Carlé",
+   "year": 2023,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°3"
+    }
+   ]
+  },
+  {
+   "id": "l-ascension-du-haut-mal",
+   "title": "L'Ascension du Haut Mal",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "David B.",
+   "year": 1996,
+   "volumes": 6,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°5"
+    }
+   ],
+   "hc": "Epileptic David B."
+  },
+  {
+   "id": "la-derniere-reine",
+   "title": "La Dernière Reine",
+   "kind": "bd",
+   "mode": "oneshot",
+   "authors": "Jean-Marc Rochette",
+   "year": 2022,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°6"
+    }
+   ]
+  },
+  {
+   "id": "blast",
+   "title": "Blast",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Manu Larcenet",
+   "year": 2009,
+   "volumes": 4,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°7"
+    }
+   ]
+  },
+  {
+   "id": "building-stories",
+   "title": "Building Stories",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Chris Ware",
+   "year": 2012,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°9"
+    }
+   ]
+  },
+  {
+   "id": "persepolis",
+   "title": "Persepolis",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Marjane Satrapi",
+   "year": 2000,
+   "volumes": 4,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°24"
+    }
+   ]
+  },
+  {
+   "id": "batman-arkham-asylum",
+   "title": "Batman : Arkham Asylum",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Grant Morrison, Dave McKean",
+   "year": 1989,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°34"
+    }
+   ],
+   "hc": "Arkham Asylum Morrison"
+  },
+  {
+   "id": "le-transperceneige",
+   "title": "Le Transperceneige",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Jacques Lob, Jean-Marc Rochette",
+   "year": 1982,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°49"
+    }
+   ],
+   "hc": "Snowpiercer"
+  },
+  {
+   "id": "ghost-world",
+   "title": "Ghost World",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Daniel Clowes",
+   "year": 1997,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°52"
+    }
+   ]
+  },
+  {
+   "id": "black-hole",
+   "title": "Black Hole",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Charles Burns",
+   "year": 2005,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°68"
+    }
+   ]
+  },
+  {
+   "id": "palestine",
+   "title": "Palestine",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Joe Sacco",
+   "year": 1996,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°74"
+    }
+   ]
+  },
+  {
+   "id": "the-spirit",
+   "title": "The Spirit",
+   "kind": "comics",
+   "mode": "albums",
+   "authors": "Will Eisner",
+   "year": 1940,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°79"
+    }
+   ]
+  },
+  {
+   "id": "peanuts",
+   "title": "Peanuts",
+   "kind": "comics",
+   "mode": "albums",
+   "authors": "Charles M. Schulz",
+   "year": 1950,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°81"
+    }
+   ],
+   "hc": "The Complete Peanuts"
+  },
+  {
+   "id": "fun-home",
+   "title": "Fun Home",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Alison Bechdel",
+   "year": 2006,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°90"
+    }
+   ]
+  },
+  {
+   "id": "mon-ami-dahmer",
+   "title": "Mon ami Dahmer",
+   "kind": "comics",
+   "mode": "oneshot",
+   "authors": "Derf Backderf",
+   "year": 2012,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°92"
+    }
+   ],
+   "hc": "My Friend Dahmer"
+  },
+  {
+   "id": "tintin",
+   "title": "Tintin",
+   "kind": "bd",
+   "mode": "albums",
+   "authors": "Hergé",
+   "year": 1930,
+   "volumes": 24,
+   "cites": [
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°15 On a marché sur la Lune"
+    },
+    {
+     "src": "moustique",
+     "year": 2024,
+     "note": "n°25 Les Bijoux de la Castafiore"
+    }
+   ],
+   "albums": [
+    "Tintin au pays des Soviets",
+    "Tintin au Congo",
+    "Tintin en Amérique",
+    "Les Cigares du pharaon",
+    "Le Lotus bleu",
+    "L'Oreille cassée",
+    "L'Île Noire",
+    "Le Sceptre d'Ottokar",
+    "Le Crabe aux pinces d'or",
+    "L'Étoile mystérieuse",
+    "Le Secret de La Licorne",
+    "Le Trésor de Rackham le Rouge",
+    "Les Sept Boules de cristal",
+    "Le Temple du Soleil",
+    "Tintin au pays de l'or noir",
+    "Objectif Lune",
+    "On a marché sur la Lune",
+    "L'Affaire Tournesol",
+    "Coke en stock",
+    "Tintin au Tibet",
+    "Les Bijoux de la Castafiore",
+    "Vol 714 pour Sydney",
+    "Tintin et les Picaros",
+    "Tintin et l'Alph-Art"
+   ],
+   "hc": "Tintin Hergé"
+  },
+  {
+   "id": "asterix",
+   "title": "Astérix",
+   "kind": "bd",
+   "mode": "albums",
+   "authors": "René Goscinny, Albert Uderzo",
+   "year": 1961,
+   "volumes": 41,
+   "cites": [
+    {
+     "src": "classique",
+     "year": null,
+     "note": ""
+    }
+   ],
+   "albums": [
+    "Astérix le Gaulois",
+    "La Serpe d'or",
+    "Astérix et les Goths",
+    "Astérix gladiateur",
+    "Le Tour de Gaule d'Astérix",
+    "Astérix et Cléopâtre",
+    "Le Combat des chefs",
+    "Astérix chez les Bretons",
+    "Astérix et les Normands",
+    "Astérix légionnaire",
+    "Le Bouclier arverne",
+    "Astérix aux Jeux olympiques",
+    "Astérix et le Chaudron",
+    "Astérix en Hispanie",
+    "La Zizanie",
+    "Astérix chez les Helvètes",
+    "Le Domaine des dieux",
+    "Les Lauriers de César",
+    "Le Devin",
+    "Astérix en Corse",
+    "Le Cadeau de César",
+    "La Grande Traversée",
+    "Obélix et Compagnie",
+    "Astérix chez les Belges",
+    "Le Grand Fossé",
+    "L'Odyssée d'Astérix",
+    "Le Fils d'Astérix",
+    "Astérix chez Rahàzade",
+    "La Rose et le Glaive",
+    "La Galère d'Obélix",
+    "Astérix et Latraviata",
+    "Astérix et la Rentrée gauloise",
+    "Le ciel lui tombe sur la tête",
+    "L'Anniversaire d'Astérix et Obélix",
+    "Astérix chez les Pictes",
+    "Le Papyrus de César",
+    "Astérix et la Transitalique",
+    "La Fille de Vercingétorix",
+    "Astérix et le Griffon",
+    "L'Iris blanc",
+    "Astérix en Lusitanie"
+   ],
+   "hc": "Asterix Goscinny"
+  },
+  {
+   "id": "gaston",
+   "title": "Gaston",
+   "kind": "bd",
+   "mode": "albums",
+   "authors": "André Franquin",
+   "year": 1960,
+   "volumes": 22,
+   "cites": [
+    {
+     "src": "classique",
+     "year": null,
+     "note": ""
+    }
+   ],
+   "hc": "Gaston Lagaffe Franquin"
+  },
+  {
+   "id": "xiii",
+   "title": "XIII",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Jean Van Hamme, William Vance",
+   "year": 1984,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "classique",
+     "year": null,
+     "note": ""
+    }
+   ],
+   "hc": "XIII Van Hamme"
+  },
+  {
+   "id": "thorgal",
+   "title": "Thorgal",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Jean Van Hamme, Grzegorz Rosiński",
+   "year": 1977,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "classique",
+     "year": null,
+     "note": ""
+    }
+   ],
+   "hc": "Thorgal"
+  },
+  {
+   "id": "blueberry",
+   "title": "Blueberry",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Jean-Michel Charlier, Jean Giraud",
+   "year": 1965,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "classique",
+     "year": null,
+     "note": ""
+    }
+   ],
+   "hc": "Blueberry Charlier Giraud"
+  },
+  {
+   "id": "largo-winch",
+   "title": "Largo Winch",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Jean Van Hamme, Philippe Francq",
+   "year": 1990,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "classique",
+     "year": null,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "les-passagers-du-vent",
+   "title": "Les Passagers du vent",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "François Bourgeon",
+   "year": 1979,
+   "volumes": 9,
+   "cites": [
+    {
+     "src": "classique",
+     "year": null,
+     "note": ""
+    }
+   ]
+  },
+  {
+   "id": "l-incal",
+   "title": "L'Incal",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Alejandro Jodorowsky, Moebius",
+   "year": 1981,
+   "volumes": 6,
+   "cites": [
+    {
+     "src": "classique",
+     "year": null,
+     "note": ""
+    }
+   ],
+   "hc": "The Incal"
+  },
+  {
+   "id": "valerian-et-laureline",
+   "title": "Valérian et Laureline",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Pierre Christin, Jean-Claude Mézières",
+   "year": 1970,
+   "volumes": 23,
+   "cites": [
+    {
+     "src": "classique",
+     "year": null,
+     "note": ""
+    }
+   ],
+   "hc": "Valerian Christin Mezieres"
+  },
+  {
+   "id": "les-vieux-fourneaux",
+   "title": "Les Vieux Fourneaux",
+   "kind": "bd",
+   "mode": "series",
+   "authors": "Wilfrid Lupano, Paul Cauuet",
+   "year": 2014,
+   "volumes": null,
+   "cites": [
+    {
+     "src": "classique",
+     "year": null,
+     "note": ""
+    }
+   ]
+  }
+ ]
+}

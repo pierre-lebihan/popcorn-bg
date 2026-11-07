@@ -81,4 +81,17 @@ python -m http.server -d docs 8080
 python scripts/export_books.py   # régénère docs/books.json
 ```
 
+### Section 📚 Lecture (BD & comics)
+
+Aucun site de notes BD fiable n'a d'API ouverte : le classement BD & comics repose sur un **référentiel figé**, mis à jour à la main de temps en temps.
+
+- [`scripts/build_bd_referentiel.py`](scripts/build_bd_referentiel.py) est la source lisible : titres, mode (série à suivre, albums indépendants, one-shot) et citations (Fauve d'or et Prix de la série d'Angoulême, Grand Prix ACBD, Eisner, top 100 Moustique…). Il génère [`data/bd_referentiel.json`](data/bd_referentiel.json) avec sa date de mise à jour (`UPDATED_AT`), affichée dans l'app.
+- [`scripts/export_bd.py`](scripts/export_bd.py) génère `docs/bd.json` chaque nuit : score de consensus (points par citation, une même source compte au plus 2 fois) + bonus selon la note des lecteurs [Hardcover](https://hardcover.app) (secret `HARDCOVER_TOKEN`, optionnel, à recréer chaque 1er janvier). Paliers : Chef-d'œuvre ≥ 8, Incontournable ≥ 4.
+- Les lectures BD sont stockées dans Supabase (`popcorn_user_state.bd`) : lu / en cours jusqu'au tome N pour les séries, coche album par album pour les albums indépendants (Astérix, Tintin, Gaston…).
+
+```bash
+python scripts/build_bd_referentiel.py          # après avoir modifié le référentiel
+HARDCOVER_TOKEN=... python scripts/export_bd.py  # régénère docs/bd.json
+```
+
 Le workflow GitHub Actions [`.github/workflows/pages.yml`](.github/workflows/pages.yml) déploie automatiquement `./docs` sur GitHub Pages et régénère `docs/data.json` chaque nuit (05h30 UTC) si les secrets `TMDB_API_KEY` et `TMDB_SESSION_ID` sont configurés sur le dépôt.

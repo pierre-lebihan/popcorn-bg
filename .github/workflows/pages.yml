@@ -79,6 +79,14 @@ jobs:
           pip install -r requirements.txt
           python scripts/export_books.py --out docs/books.json
 
+      - name: Export BD & comics (référentiel + Hardcover)
+        continue-on-error: true
+        env:
+          HARDCOVER_TOKEN: ${{ secrets.HARDCOVER_TOKEN }}
+        run: |
+          pip install -r requirements.txt
+          python scripts/export_bd.py --out docs/bd.json
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
