@@ -1,0 +1,36 @@
+name: TMP probe Steam
+on:
+  push:
+    branches: ["claude/project-thread-fpu3te"]
+    paths: [".github/workflows/tmp-probe-steam.yml"]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import requests
+          urls = [
+            "https://store.steampowered.com/api/storesearch/?term=Among%20Us&l=english&cc=PL",
+            "https://store.steampowered.com/appreviews/945360?json=1&language=all&purchase_type=all&num_per_page=0&filter=all",
+            "https://steamspy.com/api.php?request=appdetails&appid=945360",
+            "https://steamcommunity.com/actions/SearchApps/Among%20Us",
+          ]
+          uas = {"custom": "popcorn-bg/1.0 (https://github.com/pierre-lebihan/popcorn-bg)",
+                 "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36",
+                 "none": None}
+          for u in urls:
+              for name, ua in uas.items():
+                  for acc in ("application/json", None):
+                      h = {}
+                      if ua: h["User-Agent"] = ua
+                      if acc: h["Accept"] = acc
+                      try:
+                          r = requests.get(u, headers=h, timeout=20)
+                          print(f"{r.status_code} ua={name} accept={acc} ct={r.headers.get('content-type')} len={len(r.content)} :: {u[:70]} :: {r.text[:150]!r}")
+                      except Exception as e:
+                          print("ERR", name, acc, u[:70], e)
+          PY
