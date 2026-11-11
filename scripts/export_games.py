@@ -9,7 +9,8 @@ Sources (aucune clé obligatoire) :
     * catalog.gamepass.com/v3/products : programmes cloud et abonnements qui incluent chaque jeu ;
     * displaycatalog.mp.microsoft.com : titre FR, résumé, genres, date de sortie, jaquette, note du Store ;
     * sigls « Leaving soon » : jeux qui quittent bientôt le Game Pass.
-- Steam (public, sans clé) : % d'avis positifs et nombre d'avis, transformés en note SteamDB.
+- Steam (public, sans clé) : jeu retrouvé par la recherche du Store, avis positifs / négatifs via SteamSpy,
+  transformés en note SteamDB.
 - IGDB (optionnel, si TWITCH_CLIENT_ID et TWITCH_CLIENT_SECRET) : note presse et durée de jeu.
 
 Le marché est celui du VPN utilisé pour jouer (GAMEPASS_MARKET, PL par défaut : le cloud n'est pas
@@ -238,11 +239,12 @@ def steam_search(title: str) -> int | None:
 
 
 def steam_reviews(appid: int) -> dict:
-    r = http("GET", f"https://store.steampowered.com/appreviews/{appid}",
-             params={"json": 1, "language": "all", "purchase_type": "all", "num_per_page": 0, "filter": "all"})
-    q = (r.json() or {}).get("query_summary") or {}
-    return {"pos": int(q.get("total_positive") or 0), "total": int(q.get("total_reviews") or 0),
-            "desc": q.get("review_score_desc") or ""}
+    # store.steampowered.com/appreviews renvoie la page HTML du Store aux serveurs GitHub Actions :
+    # on passe par SteamSpy (mêmes compteurs d'avis positifs / négatifs, sans clé, 1 requête / s).
+    r = http("GET", "https://steamspy.com/api.php", params={"request": "appdetails", "appid": appid})
+    q = r.json() or {}
+    pos, neg = int(q.get("positive") or 0), int(q.get("negative") or 0)
+    return {"pos": pos, "total": pos + neg}
 
 
 def steamdb_rating(pos: int, total: int) -> float:
@@ -391,7 +393,7 @@ def main() -> None:
     prev = load_previous(out_path)
     prev_by_id = {g["id"]: g for g in prev.get("games") or [] if g.get("id")}
     deadline = time.time() + args.steam_budget * 60
-    steam_calls = steam_found = 0
+    steam_calls = steam_found = steam_fail = 0
     out = []
     for g in games:
         pid = g["pid"]
@@ -401,17 +403,20 @@ def main() -> None:
         st = old.get("steam") or {}
         fresh = st.get("at") and (today - datetime.date.fromisoformat(st["at"])).days < (
             STEAM_TTL_DAYS if st.get("appid") else STEAM_MISS_TTL_DAYS)
-        if not fresh and time.time() < deadline:
+        if not fresh and time.time() < deadline and steam_fail < 15:
             try:
                 appid = ig.get("steam") or st.get("appid") or steam_search(g["titleEn"] or m.get("title", ""))
                 steam_calls += 1
                 st = {"appid": appid or 0, "at": today.isoformat()}
                 if appid:
+                    time.sleep(1.0)  # SteamSpy : 1 requête / s
                     st.update(steam_reviews(appid))
                     steam_calls += 1
-                time.sleep(0.8)
+                time.sleep(0.5)
+                steam_fail = 0
             except Exception as e:  # noqa: BLE001
-                log(f"  ⚠️ Steam {g['titleEn']!r}: {e}")
+                steam_fail += 1  # 15 échecs d'affilée : Steam bloqué pour ce soir, on réessaiera demain
+                log(f"  ⚠️ Steam {g['titleEn']!r}: {str(e)[:120]}")
         if st.get("appid"):
             steam_found += 1
         sdb = steamdb_rating(st.get("pos", 0), st.get("total", 0)) if st.get("total", 0) >= 20 else 0
