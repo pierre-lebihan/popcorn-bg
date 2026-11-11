@@ -96,6 +96,7 @@ def http(method: str, url: str, *, retries: int = 4, **kw) -> requests.Response:
             continue
         if r.status_code == 429 or r.status_code >= 500:
             last = RuntimeError(f"HTTP {r.status_code} {url[:80]}")
+            log(f"  … HTTP {r.status_code} sur {url[:60]}, nouvel essai")
             time.sleep(min(60, 10 * (attempt + 1)))
             continue
         r.raise_for_status()
@@ -138,6 +139,7 @@ def gp_products(ids: list[str], market: str) -> dict[str, dict]:
         batch = ids[i:i + 50]
         r = http("POST", url, params=params, headers=headers, json={"Products": batch})
         out.update((r.json() or {}).get("Products") or {})
+        log(f"  catalogue {min(i + 50, len(ids))}/{len(ids)}")
         time.sleep(0.3)
     return out
 
@@ -150,6 +152,8 @@ def display_products(ids: list[str], market: str) -> dict[str, dict]:
                                          "languages": "fr-fr,en-us", "MS-CV": "popcorn.1"})
         for p in (r.json() or {}).get("Products") or []:
             out[p.get("ProductId")] = p
+        if i % 200 == 0:
+            log(f"  fiches {min(i + 20, len(ids))}/{len(ids)}")
         time.sleep(0.3)
     return out
 
