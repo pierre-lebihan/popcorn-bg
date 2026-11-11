@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   schedule:
     # Rafraîchit automatiquement la liste tous les matins à 05h30 UTC avec les dernières notes IMDb & ton compte TMDB
-    # (et le classement mangas & webtoons AniList)
+    # (et le classement mangas & webtoons AniList, et le catalogue Game Pass cloud)
     - cron: "30 5 * * *"
 
 permissions:
@@ -86,6 +86,18 @@ jobs:
         run: |
           pip install -r requirements.txt
           python scripts/export_bd.py --out docs/bd.json
+
+      - name: Export Game Pass cloud (catalogue Xbox + avis Steam + IGDB optionnel)
+        # Endpoints publics Microsoft et Steam, sans clé. En cas d'échec, l'app garde l'ancien games.json :
+        # on repart de la version publiée pour ne pas publier un onglet vide.
+        continue-on-error: true
+        env:
+          GAMEPASS_MARKET: ${{ vars.GAMEPASS_MARKET || 'PL' }}
+          TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+        run: |
+          pip install -r requirements.txt
+          STEAM_BUDGET_MIN=12 python scripts/export_games.py --out docs/games.json || curl -fsS -o docs/games.json https://pierre-lebihan.github.io/popcorn-bg/games.json || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

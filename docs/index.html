@@ -1461,6 +1461,22 @@
     .tier-pill.chef { background: rgba(245, 197, 24, 0.18); color: #fde68a; }
     .tier-pill.incontournable { background: rgba(56, 189, 248, 0.14); color: #7dd3fc; }
 
+    /* Jeux Game Pass : offre minimum qui inclut le jeu */
+    .gp-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1.5px 6px;
+      border-radius: 5px;
+    }
+    .gp-pill.essential { background: rgba(74, 222, 128, 0.14); color: #86efac; }
+    .gp-pill.premium { background: rgba(56, 189, 248, 0.14); color: #7dd3fc; }
+    .gp-pill.ultimate { background: rgba(245, 197, 24, 0.18); color: #fde68a; }
+    .chip.gp-chip.essential.active { background: #16a34a; border-color: #4ade80; color: #fff; }
+    .chip.gp-chip.premium.active { background: #0284c7; border-color: #38bdf8; color: #fff; }
+    .chip.gp-chip.ultimate.active { background: #ca8a04; border-color: #facc15; color: #fff; }
+    .genre-pill.warn-pill { background: rgba(248, 113, 113, 0.14); color: #fca5a5; }
+    .genre-pill.new-pill { background: rgba(167, 139, 250, 0.16); color: #c4b5fd; }
+
     .cite-line {
       font-size: 11.5px;
       color: var(--text-muted);
@@ -1675,6 +1691,9 @@
         </button>
         <button type="button" class="tab-btn" data-tab="reading">
           📚 Lecture <span class="tab-badge" id="badgeReading">–</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="games">
+          🎮 Jeux <span class="tab-badge" id="badgeGames">–</span>
         </button>
       </nav>
 

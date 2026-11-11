@@ -94,4 +94,15 @@ python scripts/build_bd_referentiel.py          # après avoir modifié le réf�
 HARDCOVER_TOKEN=... python scripts/export_bd.py  # régénère docs/bd.json
 ```
 
+### Section 🎮 Jeux (Game Pass cloud)
+
+- [`scripts/export_games.py`](scripts/export_games.py) génère `docs/games.json` chaque nuit : tous les jeux **Xbox Game Pass jouables en cloud** dans le marché `GAMEPASS_MARKET` (variable du dépôt, `PL` par défaut, le pays du VPN : le cloud n'est pas vendu en Bulgarie), avec l'**offre minimum** qui inclut chaque jeu (Essential ⊂ Premium ⊂ Ultimate) et les jeux qui quittent bientôt le Game Pass.
+- Sources : les listes publiques de xbox.com/play (`catalog.gamepass.com`, non documentées, sans clé) et `displaycatalog.mp.microsoft.com` pour les fiches ; la note vient des **avis Steam** (% positif pondéré par le nombre d'avis, façon SteamDB), sinon de la note presse IGDB, sinon du Store Xbox. Les avis Steam sont réutilisés depuis le `games.json` publié et rafraîchis tous les 7 jours.
+- **IGDB (optionnel)** pour la durée de jeu et la note presse : créer une application sur [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) puis ajouter les secrets `TWITCH_CLIENT_ID` et `TWITCH_CLIENT_SECRET` au dépôt.
+- Les jeux joués / en cours / masqués sont stockés dans Supabase (`popcorn_user_state.games`), action `set_game` de l'Edge Function.
+
+```bash
+GAMEPASS_MARKET=PL python scripts/export_games.py  # régénère docs/games.json
+```
+
 Le workflow GitHub Actions [`.github/workflows/pages.yml`](.github/workflows/pages.yml) déploie automatiquement `./docs` sur GitHub Pages et régénère `docs/data.json` chaque nuit (05h30 UTC) si les secrets `TMDB_API_KEY` et `TMDB_SESSION_ID` sont configurés sur le dépôt.
