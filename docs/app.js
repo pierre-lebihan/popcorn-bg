@@ -295,6 +295,7 @@
     advOpen: false,
     catchupWho: "me",
     bookKind: "all",
+    bdAward: "all",
     shelf: "manga",
     gameTier: loadGameTier(),
 
@@ -415,8 +416,9 @@
       return;
     }
     if (item.type === "manga" || item.type === "bd") {
+      const citeTxt = (item.cites || []).map((c) => citeLabel(c)).join(" ");
       item._search = norm(
-        [item.title, item.alt, item.authors, item.year, (item.genres || []).join(" "), item.overview].join(" ")
+        [item.title, item.alt, item.authors, item.year, (item.genres || []).join(" "), citeTxt, item.overview].join(" ")
       );
       ITEM_MAP.set(item._key, item);
       return;
@@ -728,14 +730,15 @@
     if (state.shelf === "bd") {
       return [
         ["all", "📚 Tous"],
-        ["bd", "🇪🇺 BD"],
-        ["comics", "🇺🇸 Comics"]
+        ["bd", "🇪🇺 BD franco-belge"],
+        ["comics", "🇺🇸 Comics & romans graphiques"]
       ];
     }
     return [
       ["all", "📚 Tous"],
       ["manga", "🇯🇵 Mangas"],
-      ["webtoon", "🇰🇷 Webtoons"]
+      ["webtoon", "🇰🇷 Webtoons"],
+      ["manhua", "🇨🇳 Manhua"]
     ];
   }
   function readingSorts() {
@@ -744,13 +747,16 @@
         ["imdb", "🏆 Score critique"],
         ["hc", "⭐ Note Hardcover"],
         ["votes", "🔥 Nombre de notes"],
-        ["year", "📅 Plus récents"]
+        ["volumes", "⚡ Plus courts (tomes)"],
+        ["year", "📅 Plus récents"],
+        ["year_asc", "🏛️ Plus anciens"]
       ];
     }
     return [
       ["imdb", "⭐ Note AniList"],
       ["votes", "🔥 Nombre de notes"],
       ["members", "👥 Lecteurs AniList"],
+      ["volumes", "⚡ Plus courts (tomes)"],
       ["year", "📅 Plus récents"]
     ];
   }
@@ -759,20 +765,44 @@
       return [
         ["none", "Tous"],
         ["masterpiece", "🏆 Chefs-d'œuvre"],
-        ["prized", "🥇 Primés"],
-        ["series", "📚 Séries"],
-        ["oneshot", "📕 One-shots"],
-        ["recent", "🆕 Depuis 2015"]
+        ["incontournable", "⭐ Incontournables & +"],
+        ["prized", "🥇 Primés en festival"],
+        ["oneshot", "📕 One-shots (1 tome)"],
+        ["short", "⚡ Séries courtes (2–5 tomes)"],
+        ["albums", "📖 Albums indépendants"],
+        ["series", "📚 Séries à suivre"],
+        ["recent", "🆕 Depuis 2015"],
+        ["classic_era", "🏛️ Avant 2000"]
       ];
     }
     return [
       ["none", "Tous"],
       ["masterpiece", "⭐ Chefs-d'œuvre (8.8+)"],
-      ["gem", "💎 Pépites (< 5k notes)"],
       ["classic", "🏛️ Incontournables (30k+ notes)"],
+      ["gem", "💎 Pépites (< 5k notes)"],
       ["finished", "🏁 Terminés"],
+      ["short", "⚡ Courts (≤ 10 tomes)"],
+      ["releasing", "📡 En cours de parution"],
       ["recent", "🆕 Depuis 2020"]
     ];
+  }
+
+  const BD_AWARDS = [
+    ["all", "Tous"],
+    ["fauve", "🐾 Fauve d'or Angoulême"],
+    ["serie", "🏅 Prix de la série Angoulême"],
+    ["acbd", "📰 Grand Prix ACBD"],
+    ["eisner", "🇺🇸 Prix Eisner"],
+    ["moustique", "🇧🇪 Top 100 Moustique"],
+    ["classique", "🏛️ Classiques"]
+  ];
+  const BD_AWARD_MAP = Object.fromEntries(BD_AWARDS);
+
+  function matchBdAward(item, award) {
+    if (!award || award === "all") return true;
+    const cites = item.cites || [];
+    if (award === "eisner") return cites.some((c) => String(c.src || "").startsWith("eisner"));
+    return cites.some((c) => c.src === award);
   }
 
   function kindLabel(item) {
@@ -1172,26 +1202,35 @@
 
   /* ---------------- Filtres ---------------- */
 
-  function statusOptions() {
+  function statusOptions(forTab) {
     if (!loggedIn()) return [["all", "Tout"]];
+    const tab = forTab || state.tab;
     const m = me();
     const o = other();
+    const reading = tab === "reading";
+    if (reading) {
+      const opts = [
+        ["todoMe", "📚 À lire"],
+        ["catchup", "📖 En cours"],
+        ["watched", "✅ Lus"]
+      ];
+      if (o) {
+        opts.push(["recoOther", "💡 Lus par " + o.name + " (à découvrir)"]);
+        opts.push(["readOther", "💁 Lus par " + o.name]);
+        opts.push(["readBoth", "🤝 Lus tous les deux"]);
+      }
+      opts.push(["locked", "🙈 Masqués"]);
+      opts.push(["all", "Tout"]);
+      void m;
+      return opts;
+    }
     const opts = [["todoBoth", o ? "👥 À voir ensemble" : "🍿 À voir"]];
     if (o) {
       opts.push(["todoMe", "🙋 Pas vu par moi"]);
       opts.push(["todoMeOnly", "🙋 Que moi (" + o.name + " l'a vu)"]);
       opts.push(["todoOtherOnly", "💁 Que " + o.name + " (je l'ai vu)"]);
     }
-    const reading = state.tab === "reading";
-    if (reading) {
-      opts[0][1] = o ? "👥 À lire (ni l'un ni l'autre)" : "📚 À lire";
-      if (o) {
-        opts[1][1] = "🙋 Pas lu par moi";
-        opts[2][1] = "🙋 Que moi (" + o.name + " l'a lu)";
-        opts[3][1] = "💁 Que " + o.name + " (je l'ai lu)";
-      }
-    }
-    const games = state.tab === "games";
+    const games = tab === "games";
     if (games) {
       opts[0][1] = o ? "👥 À jouer (ni l'un ni l'autre)" : "🎮 À jouer";
       if (o) {
@@ -1200,9 +1239,9 @@
         opts[3][1] = "💁 Que " + o.name + " (j'y ai joué)";
       }
     }
-    if (state.tab === "series" || reading || games) opts.push(["catchup", reading ? "📖 En cours" : games ? "🎮 En cours" : "🔄 En cours"]);
-    opts.push(["watched", reading ? "✅ Lus" : games ? "✅ Joués" : "✅ Vus"]);
-    opts.push(["locked", state.tab === "series" ? "🔒 Masquées" : "🙈 Masqués"]);
+    if (tab === "series" || games) opts.push(["catchup", games ? "🎮 En cours" : "🔄 En cours"]);
+    opts.push(["watched", games ? "✅ Joués" : "✅ Vus"]);
+    opts.push(["locked", tab === "series" ? "🔒 Masquées" : "🙈 Masqués"]);
     opts.push(["all", "Tout"]);
     void m;
     return opts;
@@ -1218,9 +1257,15 @@
       case "todoMe":
         return !isFinished(m, item);
       case "todoMeOnly":
-        return !isFinished(m, item) && Boolean(o) && isFinished(o, item);
+        return !isFinished(m, item) && Boolean(o) && statusOf(o, item) === "watched";
       case "todoOtherOnly":
-        return Boolean(o) && !isFinished(o, item) && isFinished(m, item);
+        return Boolean(o) && !isFinished(o, item) && statusOf(m, item) === "watched";
+      case "recoOther":
+        return !isFinished(m, item) && Boolean(o) && (statusOf(o, item) === "watched" || statusOf(o, item) === "catchup");
+      case "readOther":
+        return Boolean(o) && (statusOf(o, item) === "watched" || statusOf(o, item) === "catchup");
+      case "readBoth":
+        return statusOf(m, item) === "watched" && Boolean(o) && statusOf(o, item) === "watched";
       case "catchup":
         return statusOf(m, item) === "catchup";
       case "watched":
@@ -1235,6 +1280,7 @@
   function getActiveAdvancedCount() {
     let c = 0;
     if (state.genre !== "all") c++;
+    if (state.tab === "reading" && state.shelf === "bd" && state.bdAward !== "all") c++;
     if (state.preset !== "none") c++;
     if (state.sort !== "imdb") c++;
     if (state.showAllLimit) c++;
@@ -1248,7 +1294,7 @@
     const source = games ? GAMES.games || [] : reading ? readingSource() : tab === "movies" ? DATA.movies : DATA.series;
     const bdShelf = reading && state.shelf === "bd";
     const qNorm = norm(state.q.trim());
-    const validStatuses = statusOptions().map((o) => o[0]);
+    const validStatuses = statusOptions(tab).map((o) => o[0]);
     const status = validStatuses.includes(state.status) ? state.status : validStatuses[0];
 
     const filtered = source.filter((item) => {
@@ -1267,20 +1313,35 @@
       }
       if (bdShelf) {
         if (state.bookKind !== "all" && item.kind !== state.bookKind) return false;
+        if (state.bdAward !== "all" && !matchBdAward(item, state.bdAward)) return false;
         if (state.preset === "masterpiece" && item.tier !== "chef") return false;
+        if (state.preset === "incontournable" && item.tier !== "chef" && item.tier !== "incontournable") return false;
         if (state.preset === "prized" && !(item.cites || []).some((c) => c.src !== "classique" && c.src !== "moustique")) return false;
-        if (state.preset === "series" && item.mode === "oneshot") return false;
         if (state.preset === "oneshot" && item.mode !== "oneshot") return false;
+        if (state.preset === "short") {
+          const n = bdAlbumCount(item);
+          if (!(item.mode !== "oneshot" && n >= 2 && n <= 5)) return false;
+        }
+        if (state.preset === "albums" && item.mode !== "albums") return false;
+        if (state.preset === "series" && item.mode !== "series") return false;
         if (state.preset === "recent" && Number(item.year || 0) < 2015) return false;
+        if (state.preset === "classic_era" && !(Number(item.year || 0) > 0 && Number(item.year) < 2000)) return false;
         if (qNorm && !item._search.includes(qNorm)) return false;
         return true;
       }
       if (reading) {
-        if (state.bookKind !== "all" && item.kind !== state.bookKind) return false;
+        if (state.bookKind !== "all") {
+          const isManhua = item.country === "CN" || item.country === "TW";
+          if (state.bookKind === "manga" && item.kind !== "manga") return false;
+          if (state.bookKind === "webtoon" && (item.kind !== "webtoon" || isManhua)) return false;
+          if (state.bookKind === "manhua" && !isManhua) return false;
+        }
         if (state.preset === "masterpiece" && (item.score || 0) < 8.8) return false;
         if (state.preset === "gem" && (item.votes || 0) >= 5000) return false;
         if (state.preset === "classic" && (item.votes || 0) < 30000) return false;
         if (state.preset === "finished" && item.status !== "FINISHED") return false;
+        if (state.preset === "short" && !(item.status === "FINISHED" && item.volumes > 0 && item.volumes <= 10)) return false;
+        if (state.preset === "releasing" && item.status !== "RELEASING") return false;
         if (state.preset === "recent" && Number(item.year || 0) < 2020) return false;
         if (qNorm && !item._search.includes(qNorm)) return false;
         return true;
@@ -1314,6 +1375,12 @@
     filtered.sort((a, b) => {
       if (state.sort === "votes") return (b.votes || 0) - (a.votes || 0) || (scoreOf(b) - scoreOf(a));
       if (state.sort === "year") return Number(b.year || 0) - Number(a.year || 0) || (scoreOf(b) - scoreOf(a));
+      if (state.sort === "year_asc") return (Number(a.year || 9999) - Number(b.year || 9999)) || (scoreOf(b) - scoreOf(a));
+      if (state.sort === "volumes") {
+        const va = (bdShelf ? bdAlbumCount(a) : a.volumes) || 9999;
+        const vb = (bdShelf ? bdAlbumCount(b) : b.volumes) || 9999;
+        return va - vb || (scoreOf(b) - scoreOf(a));
+      }
       if (state.sort === "hours") return (a.hours || 9999) - (b.hours || 9999) || (scoreOf(b) - scoreOf(a));
       if (state.sort === "added") return String(b.addedAt || "").localeCompare(String(a.addedAt || "")) || (scoreOf(b) - scoreOf(a));
       if (state.sort === "hc") return (b.hcRating || 0) - (a.hcRating || 0) || (b.votes || 0) - (a.votes || 0);
@@ -1354,10 +1421,11 @@
 
   function updateBadges() {
     const st = loggedIn() ? "todoBoth" : "all";
+    const stRead = loggedIn() ? "todoMe" : "all";
     document.getElementById("badgeMovies").textContent = DATA.movies.filter((x) => matchStatus(x, st)).length;
     document.getElementById("badgeSeries").textContent = DATA.series.filter((x) => matchStatus(x, st)).length;
     document.getElementById("badgeReading").textContent =
-      [...(BOOKS.manga || []), ...(BD.bd || [])].filter((x) => matchStatus(x, st)).length || "–";
+      [...(BOOKS.manga || []), ...(BD.bd || [])].filter((x) => matchStatus(x, stRead)).length || "–";
     document.getElementById("badgeGames").textContent =
       (GAMES.games || []).filter((x) => matchStatus(x, st)).length || "–";
     document.getElementById("badgeCatchup").textContent = loggedIn() ? catchupList(me()).length : "–";
@@ -1486,6 +1554,9 @@
       });
     }
 
+    if (reading && state.shelf === "bd" && state.bdAward !== "all" && BD_AWARD_MAP[state.bdAward]) {
+      row1 += chip("set-bd-award", "all", esc(BD_AWARD_MAP[state.bdAward]) + " ✕", false, "active-pill");
+    }
     if (state.genre !== "all") {
       row1 += chip("set-genre", "all", "🎭 " + esc(state.genre) + " ✕", false, "active-pill");
     }
@@ -1498,7 +1569,7 @@
     if (state.showAllLimit) {
       row1 += chip("set-limit", "top50", "📋 Tout (" + totalCount + ") ✕", false, "active-pill");
     }
-    row1 += chip("toggle-adv", "", "⚙️ Genres & Tri…", false, "more-filters");
+    row1 += chip("toggle-adv", "", reading && state.shelf === "bd" ? "⚙️ Prix & Tri…" : "⚙️ Genres & Tri…", false, "more-filters");
     row1 += "</div>";
 
     // Ligne 2 : Statut (« Qui a vu ? » / « Qui a lu ? »)
@@ -1516,7 +1587,7 @@
     items.forEach((it) => (it.genres || []).forEach((g) => (genreCounts[g] = (genreCounts[g] || 0) + 1)));
     const sortedGenres = Object.keys(genreCounts).sort((a, b) => genreCounts[b] - genreCounts[a]);
 
-    const defStatus = loggedIn() ? "todoBoth" : "all";
+    const defStatus = !loggedIn() ? "all" : reading ? "todoMe" : "todoBoth";
     const hasAnyFilter =
       advCount > 0 ||
       state.providers.size > 0 ||
@@ -1530,7 +1601,7 @@
     if (opts.length > 1) {
       advHtml +=
         '<div class="adv-group"><div class="adv-label-row"><span>' +
-        (reading ? "Qui a lu ? (Statut)" : games ? "Qui a joué ? (Statut)" : "Qui a vu ? (Statut)") +
+        (reading ? "Mes lectures & découvertes (Statut)" : games ? "Qui a joué ? (Statut)" : "Qui a vu ? (Statut)") +
         '</span></div><div class="chip-wrap">';
       opts.forEach(([val, lbl]) => (advHtml += chip("set-status", val, esc(lbl), curStatus === val)));
       advHtml += "</div></div>";
@@ -1576,10 +1647,22 @@
     presets.forEach(([val, lbl]) => (advHtml += chip("set-preset", val, lbl, state.preset === val)));
     advHtml += "</div></div>";
 
-    advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Genres</span></div><div class="chip-wrap">';
-    advHtml += chip("set-genre", "all", "Tous", state.genre === "all");
-    sortedGenres.forEach((g) => (advHtml += chip("set-genre", g, esc(g) + " (" + genreCounts[g] + ")", state.genre === g)));
-    advHtml += "</div></div>";
+    if (reading && state.shelf === "bd") {
+      advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Prix &amp; Palmarès</span></div><div class="chip-wrap">';
+      BD_AWARDS.forEach(([val, lbl]) => {
+        const cnt = val === "all" ? items.length : items.filter((it) => matchBdAward(it, val)).length;
+        const suffix = val === "all" ? "" : " (" + cnt + ")";
+        advHtml += chip("set-bd-award", val, esc(lbl) + suffix, state.bdAward === val);
+      });
+      advHtml += "</div></div>";
+    }
+
+    if (sortedGenres.length > 0) {
+      advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Genres</span></div><div class="chip-wrap">';
+      advHtml += chip("set-genre", "all", "Tous", state.genre === "all");
+      sortedGenres.forEach((g) => (advHtml += chip("set-genre", g, esc(g) + " (" + genreCounts[g] + ")", state.genre === g)));
+      advHtml += "</div></div>";
+    }
 
     advHtml += '<div class="adv-footer">';
     if (hasAnyFilter) {
@@ -1942,6 +2025,26 @@
           " séries commencées :</strong> " +
           esc(names) +
           '</div><div class="catchup-banner-arrow">Voir →</div></div>';
+      }
+    }
+
+    if (state.tab === "reading" && loggedIn() && !isSearching && state.status !== "catchup") {
+      const ongoingReads = readingSource().filter((it) => statusOf(me(), it) === "catchup");
+      if (ongoingReads.length > 0) {
+        const names = ongoingReads
+          .slice(0, 6)
+          .map((it) => {
+            const lbl = readingLabel(me(), it).replace(/^📖\s*/, "");
+            return it.title + (lbl && lbl !== "En cours" ? " (" + lbl + ")" : "");
+          })
+          .join(" · ");
+        html +=
+          '<div class="catchup-banner" data-action="set-status" data-val="catchup"><div class="catchup-banner-text">📖 <strong>' +
+          ongoingReads.length +
+          (ongoingReads.length > 1 ? " lectures en cours :" : " lecture en cours :") +
+          "</strong> " +
+          esc(names) +
+          '</div><div class="catchup-banner-arrow">Filtrer →</div></div>';
       }
     }
 
@@ -2991,8 +3094,10 @@
     state.q = "";
     elSearchInput.value = "";
     elSearchClear.classList.remove("visible");
-    state.status = loggedIn() ? "todoBoth" : "all";
+    state.status = !loggedIn() ? "all" : state.tab === "reading" ? "todoMe" : "todoBoth";
     state.providers.clear();
+    state.bookKind = "all";
+    state.bdAward = "all";
     state.genre = "all";
     state.preset = "none";
     state.sort = "imdb";
@@ -3020,8 +3125,17 @@
     const family = (t) => (t === "reading" ? "r" : t === "games" ? "g" : "v");
     if (family(btn.dataset.tab) !== family(state.tab)) {
       state.genre = "all";
+      state.bdAward = "all";
       state.preset = "none";
       state.sort = "imdb";
+      if (btn.dataset.tab === "reading" && state.status === "todoBoth") {
+        state.status = "todoMe";
+      } else if (
+        state.tab === "reading" &&
+        (state.status === "todoMe" || state.status === "recoOther" || state.status === "readOther" || state.status === "readBoth")
+      ) {
+        state.status = loggedIn() ? "todoBoth" : "all";
+      }
     }
     state.tab = btn.dataset.tab;
     btn.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
@@ -3106,10 +3220,15 @@
         state.bookKind = val;
         renderAll();
         break;
+      case "set-bd-award":
+        state.bdAward = state.bdAward === val ? "all" : val;
+        renderAll();
+        break;
       case "set-shelf":
         if (state.shelf === val) break;
         state.shelf = val;
         state.bookKind = "all";
+        state.bdAward = "all";
         state.genre = "all";
         state.preset = "none";
         state.sort = "imdb";
