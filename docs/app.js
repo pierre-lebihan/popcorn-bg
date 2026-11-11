@@ -41,6 +41,7 @@
   let DATA = { movies: [], series: [], providers: [], region: "BG", generatedAt: "" };
   let BOOKS = { manga: [], generatedAt: "" };
   let BD = { bd: [], sources: {}, generatedAt: "", referentialUpdatedAt: "" };
+  let GAMES = { games: [], generatedAt: "", market: "PL" };
   const ITEM_MAP = new Map();
 
   /* ---------------- Household state (vus TMDB de chacun) ---------------- */
@@ -67,6 +68,8 @@
     const keepManga = !raw.manga && prev;
     const bd = new Map();
     if (raw.bd) Object.entries(raw.bd).forEach(([k, v]) => bd.set(String(k), v));
+    const games = new Map();
+    if (raw.games) Object.entries(raw.games).forEach(([k, v]) => games.set(String(k), v));
     return {
       email: String(raw.email || "").toLowerCase(),
       name: raw.name || raw.email,
@@ -79,7 +82,8 @@
       anilistName: keepManga ? prev.anilistName : raw.anilistName || "",
       anilistError: keepManga ? prev.anilistError : raw.anilistError || "",
       manga: keepManga ? prev.manga : manga, // Map<mediaId, [statut, tome]>
-      bd: !raw.bd && prev ? prev.bd : bd // Map<id référentiel, [statut, tome, albums lus]>
+      bd: !raw.bd && prev ? prev.bd : bd, // Map<id référentiel, [statut, tome, albums lus]>
+      games: !raw.games && prev ? prev.games : games // Map<productId Xbox, "played"|"playing"|"hidden">
     };
   }
 
@@ -97,7 +101,8 @@
       anilistLinked: Boolean(u.anilistLinked),
       anilistName: u.anilistName || "",
       manga: Object.fromEntries(u.manga || new Map()),
-      bd: Object.fromEntries(u.bd || new Map())
+      bd: Object.fromEntries(u.bd || new Map()),
+      games: Object.fromEntries(u.games || new Map())
     };
   }
 
@@ -215,8 +220,18 @@
     return item.type === "bd" ? bdEntry(user, item) : mangaEntry(user, item);
   }
 
+  // Jeux : "played" | "playing" | "hidden" ou null
+  function gameEntry(user, item) {
+    return (user && user.games && user.games.get(item.id)) || null;
+  }
+
   function statusOf(user, item) {
     if (!user) return "unwatched";
+    if (item.type === "game") {
+      const g = gameEntry(user, item);
+      if (!g) return "unwatched";
+      return g === "played" ? "watched" : g === "hidden" ? "locked" : "catchup";
+    }
     if (item.type === "manga" || item.type === "bd") {
       const e = readEntry(user, item);
       if (!e) return "unwatched";
@@ -281,6 +296,7 @@
     catchupWho: "me",
     bookKind: "all",
     shelf: "manga",
+    gameTier: loadGameTier(),
 
     epSeriesId: null,
     epFilter: "unwatched",
@@ -295,6 +311,14 @@
     modalEpFilter: "unwatched",
     modalEpShowAll: false
   };
+
+  function loadGameTier() {
+    try {
+      return localStorage.getItem("popcorn_game_tier") || "all";
+    } catch (_) {
+      return "all";
+    }
+  }
 
   const $ = (id) => document.getElementById(id);
   const elHeaderSub = $("headerSub");
@@ -383,6 +407,13 @@
 
   function prepareItem(item) {
     item._key = item.type + ":" + item.id;
+    if (item.type === "game") {
+      item._search = norm(
+        [item.title, item.en, item.developer, item.publisher, item.year, (item.genres || []).join(" "), item.overview].join(" ")
+      );
+      ITEM_MAP.set(item._key, item);
+      return;
+    }
     if (item.type === "manga" || item.type === "bd") {
       item._search = norm(
         [item.title, item.alt, item.authors, item.year, (item.genres || []).join(" "), item.overview].join(" ")
@@ -799,6 +830,85 @@
     return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
   }
 
+  /* ---------------- Jeux (Game Pass cloud) ---------------- */
+
+  const GP_TIERS = [
+    ["essential", "Essential"],
+    ["premium", "Premium"],
+    ["ultimate", "Ultimate"]
+  ];
+  const GP_RANK = { essential: 1, premium: 2, ultimate: 3 };
+  const GP_LABEL = Object.fromEntries(GP_TIERS);
+  // Heures de cloud incluses par mois (Xbox, à partir de novembre 2026)
+  const GP_CLOUD_HOURS = { essential: 5, premium: 10, ultimate: 15 };
+  const NEW_DAYS = 30;
+
+  function gpPill(item) {
+    return '<span class="gp-pill ' + esc(item.tier) + '">' + esc(GP_LABEL[item.tier] || item.tier) + "</span>";
+  }
+
+  function isNewGame(item) {
+    if (!item.addedAt) return false;
+    const d = new Date(item.addedAt + "T12:00:00");
+    return !isNaN(d) && Date.now() - d.getTime() < NEW_DAYS * 86400000;
+  }
+
+  function steamPct(item) {
+    const st = item.steam || {};
+    return st.total ? Math.round((100 * (st.pos || 0)) / st.total) : 0;
+  }
+
+  // Badge de note principal : Steam, sinon presse (IGDB), sinon Store Xbox
+  function gameScoreBadge(item, long) {
+    if (item.scoreSrc === "steam") {
+      return (
+        '<span class="badge-imdb">👍 ' + steamPct(item) + " %" + (long ? " sur Steam" : " Steam") +
+        ' <span class="votes">(' + fmtVotes(item.votes) + " avis)</span></span>"
+      );
+    }
+    if (item.scoreSrc === "presse") return '<span class="badge-imdb">📰 ' + Math.round(item.press) + "/100 presse</span>";
+    if (item.scoreSrc === "xbox") {
+      return (
+        '<span class="badge-imdb">★ ' + fmt1(item.xboxRating) + "/5 Xbox" +
+        ' <span class="votes">(' + fmtVotes(item.xboxVotes) + ")</span></span>"
+      );
+    }
+    return '<span class="badge-tmdb">Pas encore de note</span>';
+  }
+
+  function gameLabel(user, item) {
+    const g = gameEntry(user, item);
+    if (g === "played") return "✅ Joué";
+    if (g === "playing") return "🎮 En cours";
+    if (g === "hidden") return "🙈 Masqué";
+    return "";
+  }
+
+  function gameSlug(item) {
+    return norm(item.en || item.title).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "game";
+  }
+
+  function gameSorts() {
+    return [
+      ["imdb", "⭐ Meilleure note"],
+      ["votes", "🔥 Nombre d'avis"],
+      ["hours", "⏱️ Plus courts"],
+      ["added", "🆕 Derniers ajouts"],
+      ["year", "📅 Plus récents"]
+    ];
+  }
+
+  function gamePresets() {
+    return [
+      ["none", "Tous"],
+      ["masterpiece", "⭐ Chefs-d'œuvre (90 %+)"],
+      ["short", "⏱️ Courts (≤ 10 h)"],
+      ["new", "🆕 Ajoutés ce mois-ci"],
+      ["leaving", "⏳ Quittent bientôt"],
+      ["recent", "📅 Sortis depuis 2023"]
+    ];
+  }
+
   /* ---------------- Init ---------------- */
 
   async function loadCatalog() {
@@ -835,6 +945,14 @@
       BD = { bd: [], sources: {}, generatedAt: "", referentialUpdatedAt: "" };
     }
     (BD.bd || []).forEach(prepareItem);
+    try {
+      const res = await fetch("./games.json?t=" + Date.now(), { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      GAMES = await res.json();
+    } catch (_) {
+      GAMES = { games: [], generatedAt: "", market: "PL" }; // pas encore généré : l'onglet Jeux sera vide
+    }
+    (GAMES.games || []).forEach(prepareItem);
   }
 
   let reloading = false;
@@ -1073,8 +1191,17 @@
         opts[3][1] = "💁 Que " + o.name + " (je l'ai lu)";
       }
     }
-    if (state.tab === "series" || reading) opts.push(["catchup", reading ? "📖 En cours" : "🔄 En cours"]);
-    opts.push(["watched", reading ? "✅ Lus" : "✅ Vus"]);
+    const games = state.tab === "games";
+    if (games) {
+      opts[0][1] = o ? "👥 À jouer (ni l'un ni l'autre)" : "🎮 À jouer";
+      if (o) {
+        opts[1][1] = "🙋 Pas joué par moi";
+        opts[2][1] = "🙋 Que moi (" + o.name + " y a joué)";
+        opts[3][1] = "💁 Que " + o.name + " (j'y ai joué)";
+      }
+    }
+    if (state.tab === "series" || reading || games) opts.push(["catchup", reading ? "📖 En cours" : games ? "🎮 En cours" : "🔄 En cours"]);
+    opts.push(["watched", reading ? "✅ Lus" : games ? "✅ Joués" : "✅ Vus"]);
     opts.push(["locked", state.tab === "series" ? "🔒 Masquées" : "🙈 Masqués"]);
     opts.push(["all", "Tout"]);
     void m;
@@ -1117,7 +1244,8 @@
   function getFilteredList(forTab) {
     const tab = forTab || state.tab;
     const reading = tab === "reading";
-    const source = reading ? readingSource() : tab === "movies" ? DATA.movies : DATA.series;
+    const games = tab === "games";
+    const source = games ? GAMES.games || [] : reading ? readingSource() : tab === "movies" ? DATA.movies : DATA.series;
     const bdShelf = reading && state.shelf === "bd";
     const qNorm = norm(state.q.trim());
     const validStatuses = statusOptions().map((o) => o[0]);
@@ -1127,6 +1255,16 @@
       if (!matchStatus(item, status)) return false;
 
       if (state.genre !== "all" && !(item.genres || []).includes(state.genre)) return false;
+      if (games) {
+        if (state.gameTier !== "all" && (GP_RANK[item.tier] || 9) > (GP_RANK[state.gameTier] || 0)) return false;
+        if (state.preset === "masterpiece" && (item.score || 0) < 90) return false;
+        if (state.preset === "short" && !(item.hours > 0 && item.hours <= 10)) return false;
+        if (state.preset === "new" && !isNewGame(item)) return false;
+        if (state.preset === "leaving" && !item.leaving) return false;
+        if (state.preset === "recent" && Number(item.year || 0) < 2023) return false;
+        if (qNorm && !item._search.includes(qNorm)) return false;
+        return true;
+      }
       if (bdShelf) {
         if (state.bookKind !== "all" && item.kind !== state.bookKind) return false;
         if (state.preset === "masterpiece" && item.tier !== "chef") return false;
@@ -1166,7 +1304,7 @@
     const o = other();
     const targetUser = (status === "todoOtherOnly" && o) ? o : m;
     const scoreOf = (x) => {
-      if (reading) return x.score || 0;
+      if (reading || games) return x.score || 0;
       if (tab === "series" && targetUser && statusOf(targetUser, x) === "catchup") {
         return unwatchedImdb(targetUser, x);
       }
@@ -1176,6 +1314,8 @@
     filtered.sort((a, b) => {
       if (state.sort === "votes") return (b.votes || 0) - (a.votes || 0) || (scoreOf(b) - scoreOf(a));
       if (state.sort === "year") return Number(b.year || 0) - Number(a.year || 0) || (scoreOf(b) - scoreOf(a));
+      if (state.sort === "hours") return (a.hours || 9999) - (b.hours || 9999) || (scoreOf(b) - scoreOf(a));
+      if (state.sort === "added") return String(b.addedAt || "").localeCompare(String(a.addedAt || "")) || (scoreOf(b) - scoreOf(a));
       if (state.sort === "hc") return (b.hcRating || 0) - (a.hcRating || 0) || (b.votes || 0) - (a.votes || 0);
       if (state.sort === "members") return (b.members || 0) - (a.members || 0) || (scoreOf(b) - scoreOf(a));
       if (state.sort === "tmdb") return (b.tmdb || 0) - (a.tmdb || 0) || (scoreOf(b) - scoreOf(a));
@@ -1218,6 +1358,8 @@
     document.getElementById("badgeSeries").textContent = DATA.series.filter((x) => matchStatus(x, st)).length;
     document.getElementById("badgeReading").textContent =
       [...(BOOKS.manga || []), ...(BD.bd || [])].filter((x) => matchStatus(x, st)).length || "–";
+    document.getElementById("badgeGames").textContent =
+      (GAMES.games || []).filter((x) => matchStatus(x, st)).length || "–";
     document.getElementById("badgeCatchup").textContent = loggedIn() ? catchupList(me()).length : "–";
     document.querySelectorAll("#mainTabs .tab-btn").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.tab === state.tab);
@@ -1262,7 +1404,10 @@
     }
 
     const reading = state.tab === "reading";
-    elSearchInput.placeholder = reading
+    const games = state.tab === "games";
+    elSearchInput.placeholder = games
+      ? "Rechercher un jeu, un studio, un genre…"
+      : reading
       ? state.shelf === "bd"
         ? "Rechercher une BD, un comics, un auteur…"
         : "Rechercher un manga, un webtoon, un genre…"
@@ -1279,11 +1424,19 @@
 
     const opts = statusOptions();
     const curStatus = opts.some((o) => o[0] === state.status) ? state.status : opts[0][0];
-    const items = reading ? readingSource() : state.tab === "movies" ? DATA.movies || [] : DATA.series || [];
+    const items = games
+      ? GAMES.games || []
+      : reading
+      ? readingSource()
+      : state.tab === "movies"
+      ? DATA.movies || []
+      : DATA.series || [];
     const totalCount = items.length;
     const allLabel = totalCount ? "Catalogue complet (" + totalCount + ")" : "Catalogue complet";
 
-    const sortOpts = reading
+    const sortOpts = games
+      ? gameSorts()
+      : reading
       ? readingSorts()
       : [
           ["imdb", "⭐ Note IMDb"],
@@ -1292,7 +1445,9 @@
           ["tmdb", "💙 Note TMDB"]
         ];
     const sortMap = Object.fromEntries(sortOpts);
-    const presets = reading
+    const presets = games
+      ? gamePresets()
+      : reading
       ? readingPresets()
       : [
           ["none", "Tous"],
@@ -1309,7 +1464,10 @@
 
     // Ligne 1 : Plateformes (ou type de lecture) + filtres avancés actifs (supprimables en 1 toucher) + bouton Tous les filtres
     let row1 = '<div class="chip-scroll">';
-    if (reading) {
+    if (games) {
+      row1 += chip("set-game-tier", "all", "🎮 Toutes offres", state.gameTier === "all");
+      GP_TIERS.forEach(([val, lbl]) => (row1 += chip("set-game-tier", val, esc(lbl), state.gameTier === val, "gp-chip " + val)));
+    } else if (reading) {
       readingKinds().forEach(([val, lbl]) => (row1 += chip("set-book-kind", val, lbl, state.bookKind === val)));
     } else {
       row1 += chip("prov-all", "", "Toutes", state.providers.size === 0);
@@ -1372,13 +1530,19 @@
     if (opts.length > 1) {
       advHtml +=
         '<div class="adv-group"><div class="adv-label-row"><span>' +
-        (reading ? "Qui a lu ? (Statut)" : "Qui a vu ? (Statut)") +
+        (reading ? "Qui a lu ? (Statut)" : games ? "Qui a joué ? (Statut)" : "Qui a vu ? (Statut)") +
         '</span></div><div class="chip-wrap">';
       opts.forEach(([val, lbl]) => (advHtml += chip("set-status", val, esc(lbl), curStatus === val)));
       advHtml += "</div></div>";
     }
 
-    if (reading) {
+    if (games) {
+      advHtml +=
+        '<div class="adv-group"><div class="adv-label-row"><span>Mon abonnement (jeux inclus)</span></div><div class="chip-wrap">';
+      advHtml += chip("set-game-tier", "all", "Toutes offres", state.gameTier === "all");
+      GP_TIERS.forEach(([val, lbl]) => (advHtml += chip("set-game-tier", val, esc(lbl), state.gameTier === val, "gp-chip " + val)));
+      advHtml += "</div></div>";
+    } else if (reading) {
       advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Type</span></div><div class="chip-wrap">';
       readingKinds().forEach(([val, lbl]) => (advHtml += chip("set-book-kind", val, lbl, state.bookKind === val)));
       advHtml += "</div></div>";
@@ -1435,6 +1599,9 @@
 
   function whoPill(user, item) {
     const st = statusOf(user, item);
+    if (item.type === "game") {
+      return '<span class="who-pill ' + st + '">' + esc(user.name) + " " + esc(gameLabel(user, item) || "–") + "</span>";
+    }
     if (item.type === "manga" || item.type === "bd") {
       return (
         '<span class="who-pill ' + st + '">' + esc(user.name) + " " + esc(readingLabel(user, item) || "–") + "</span>"
@@ -1553,7 +1720,55 @@
     );
   }
 
+  function renderGameCard(item, idx) {
+    const m = me();
+    const myStatus = statusOf(m, item);
+    const posterHtml = item.cover
+      ? '<img src="' + esc(item.cover) + '" alt="' + esc(item.title) + '" loading="lazy" />'
+      : '<div class="poster-fallback">🎮</div>';
+    let cornerHtml = "";
+    if (m && myStatus !== "unwatched") {
+      const cls = myStatus === "watched" ? "vu" : myStatus === "locked" ? "locked" : "catchup";
+      cornerHtml = '<div class="status-corner ' + cls + '">' + esc(gameLabel(m, item)) + "</div>";
+    }
+    const isMuted = m && (myStatus === "watched" || myStatus === "locked") && state.status === "all";
+    const genrePills = (item.genres || [])
+      .slice(0, 2)
+      .map((g) => '<span class="genre-pill">' + esc(g) + "</span>")
+      .join("");
+    return (
+      '<article class="media-card ' +
+      (isMuted ? "is-vu" : "") +
+      '" data-action="open-modal" data-key="' +
+      esc(item._key) +
+      '"><div class="poster-wrap">' +
+      posterHtml +
+      '<div class="rank-badge">#' +
+      (idx + 1) +
+      "</div>" +
+      cornerHtml +
+      '</div><div class="card-body"><div class="card-title-row"><span class="card-title">' +
+      esc(item.title) +
+      '</span><span class="card-year">' +
+      esc(item.year) +
+      "</span></div>" +
+      '<div class="card-orig">' + esc(item.developer || item.publisher || item.en) + "</div>" +
+      '<div class="scores-row">' + gameScoreBadge(item) +
+      (item.hours ? '<span class="badge-tmdb">⏱️ ~' + item.hours + " h</span>" : "") +
+      "</div>" +
+      '<div class="meta-tags">' + gpPill(item) +
+      (item.leaving ? '<span class="genre-pill warn-pill">⏳ Quitte bientôt</span>' : "") +
+      (isNewGame(item) ? '<span class="genre-pill new-pill">🆕 Nouveau</span>' : "") +
+      genrePills +
+      "</div>" +
+      whoRow(item) +
+      (item.overview ? '<div class="card-overview">' + esc(item.overview) + "</div>" : "") +
+      "</div></article>"
+    );
+  }
+
   function renderCard(item, idx) {
+    if (item.type === "game") return renderGameCard(item, idx);
     if (item.type === "manga" || item.type === "bd") return renderBookCard(item, idx);
     const posterHtml = item.poster
       ? '<img src="' + IMG_SM + esc(item.poster) + '" alt="' + esc(item.title) + '" loading="lazy" />'
@@ -1666,7 +1881,23 @@
 
     let html = loginHint();
 
-    if (state.tab === "reading" && state.shelf === "bd") {
+    if (state.tab === "games") {
+      if (!(GAMES.games || []).length) {
+        elMainContent.innerHTML =
+          html +
+          '<div class="empty-state"><div class="emoji">🎮</div><div>Le catalogue Game Pass n\'est pas encore généré (<code>games.json</code>).</div></div>';
+        return;
+      }
+      const t = state.gameTier !== "all" ? state.gameTier : "";
+      html +=
+        '<div class="ref-banner" data-action="games-info">☁️ Catalogue <strong>Game Pass jouable en cloud</strong> · marché ' +
+        esc(GAMES.market || "PL") +
+        (GAMES.generatedAt ? " · màj du " + esc(fmtDateFr(GAMES.generatedAt)) : "") +
+        (t
+          ? " · <strong>" + esc(GP_LABEL[t]) + "</strong> : " + GP_CLOUD_HOURS[t] + " h de cloud par mois"
+          : " · cloud limité à 5 h / 10 h / 15 h par mois") +
+        ' <span class="ref-more">Infos →</span></div>';
+    } else if (state.tab === "reading" && state.shelf === "bd") {
       if (!(BD.bd || []).length) {
         elMainContent.innerHTML =
           html +
@@ -2027,7 +2258,7 @@
     updateBadges();
     renderToolbar();
     renderAccountButton();
-    if (state.tab === "movies" || state.tab === "series" || state.tab === "reading") renderMoviesOrSeries();
+    if (state.tab === "movies" || state.tab === "series" || state.tab === "reading" || state.tab === "games") renderMoviesOrSeries();
     else if (state.tab === "catchup") renderCatchupTab();
     else renderEpisodesTab();
   }
@@ -2035,7 +2266,7 @@
   /* ---------------- Fiche détail / compte ---------------- */
 
   function openModal(key, fromRandom) {
-    if (key !== "__account__" && key !== "__bdsources__" && !ITEM_MAP.get(key)) return;
+    if (key !== "__account__" && key !== "__bdsources__" && key !== "__gamesinfo__" && !ITEM_MAP.get(key)) return;
     const item = ITEM_MAP.get(key);
     state.modalKey = key;
     state.modalFromRandom = Boolean(fromRandom);
@@ -2086,7 +2317,9 @@
                 : "AniList non relié") +
               " · " +
               [...(u.bd || new Map()).values()].filter((x) => x[0] === "read").length +
-              " BD lues"
+              " BD lues · " +
+              [...(u.games || new Map()).values()].filter((x) => x === "played").length +
+              " jeux joués"
           )
           .join("<br/>") +
         "</p></div>";
@@ -2461,9 +2694,156 @@
     elModalSheet.innerHTML = html;
   }
 
+  function renderGameTracking(item) {
+    const m = me();
+    if (!m) {
+      return AUTH_ENABLED
+        ? '<div class="sheet-section"><button type="button" class="btn-toggle" data-action="login" style="width:100%">🔑 Connexion Google pour cocher « joué »</button></div>'
+        : "";
+    }
+    const o = other();
+    const st = gameEntry(m, item);
+    const k = esc(item._key);
+    let html = '<div class="sheet-section"><div class="sheet-section-title"><span>Ma partie (' + esc(m.name) + ")</span>";
+    if (o) html += whoPill(o, item);
+    html += '</div><div class="toggle-row">';
+    html +=
+      '<button type="button" class="btn-toggle ' + (st === "played" ? "on" : "") + '" data-action="game-set" data-st="played" data-key="' + k + '">' +
+      (st === "played" ? "✅ Joué — annuler" : "✅ Joué / fini") +
+      "</button>";
+    html +=
+      '<button type="button" class="btn-toggle ' + (st === "playing" ? "on" : "") + '" data-action="game-set" data-st="playing" data-key="' + k + '">' +
+      (st === "playing" ? "🎮 En cours — annuler" : "🎮 En cours") +
+      "</button>";
+    html +=
+      '<button type="button" class="btn-toggle warn ' + (st === "hidden" ? "on" : "") + '" data-action="game-set" data-st="hidden" data-key="' + k + '">' +
+      (st === "hidden" ? "🙉 Ne plus masquer" : "🙈 Masquer (pas pour moi)") +
+      "</button></div></div>";
+    return html;
+  }
+
+  function renderGameModal(item) {
+    const posterHtml = item.cover
+      ? '<img src="' + esc(item.cover) + '" alt="' + esc(item.title) + '" />'
+      : '<div class="poster-fallback">🎮</div>';
+    let html = '<div class="sheet-handle"></div>';
+    if (state.modalFromRandom) {
+      html +=
+        '<div class="random-bar"><span>🎲 Tiré au sort dans ta sélection</span>' +
+        '<button type="button" class="btn-random" data-action="reroll-random" style="padding:4px 10px;font-size:12px">🎲 Relancer</button></div>';
+    }
+    html += '<div class="sheet-top"><div class="sheet-poster">' + posterHtml + "</div>";
+    html += '<button type="button" class="sheet-close" data-action="close-modal" aria-label="Fermer">✕</button>';
+    html += '<div class="sheet-info"><div class="sheet-title">' + esc(item.title) + "</div>";
+    const by = [item.developer, item.publisher && item.publisher !== item.developer ? item.publisher : ""].filter(Boolean).join(" · ");
+    if (item.en || by) html += '<div class="card-orig" style="white-space:normal">' + esc([item.en, by].filter(Boolean).join(" — ")) + "</div>";
+    html += '<div class="scores-row" style="margin-top:2px">' + gameScoreBadge(item, true);
+    if (item.scoreSrc !== "presse" && item.press) html += '<span class="badge-tmdb">📰 ' + Math.round(item.press) + "/100 presse</span>";
+    if (item.scoreSrc !== "xbox" && item.xboxVotes >= 20) html += '<span class="badge-tmdb">★ ' + fmt1(item.xboxRating) + "/5 Xbox</span>";
+    html += '<span class="card-year">' + esc(item.year) + "</span></div>";
+    html +=
+      '<div class="meta-tags">' + gpPill(item) +
+      (item.hours ? '<span class="genre-pill">⏱️ ~' + item.hours + " h pour le finir</span>" : "") +
+      (item.leaving ? '<span class="genre-pill warn-pill">⏳ Quitte bientôt le Game Pass</span>' : "") +
+      (isNewGame(item) ? '<span class="genre-pill new-pill">🆕 Ajouté le ' + esc(fmtDateFr(item.addedAt)) + "</span>" : "") +
+      (item.genres || []).map((g) => '<span class="genre-pill">' + esc(g) + "</span>").join("") +
+      "</div>";
+    html += whoRow(item);
+    html += "</div></div>";
+    const slug = gameSlug(item);
+    html += '<div class="sheet-actions">';
+    html +=
+      '<a class="btn-action primary" href="https://www.xbox.com/fr-FR/play/games/' + esc(slug) + "/" + esc(item.id) +
+      '" target="_blank" rel="noopener">☁️ Jouer en cloud</a>';
+    html +=
+      '<a class="btn-action" href="https://www.xbox.com/fr-FR/games/store/' + esc(slug) + "/" + esc(item.id) +
+      '" target="_blank" rel="noopener">🛒 Fiche Xbox</a>';
+    if (item.steam && item.steam.appid) {
+      html +=
+        '<a class="btn-action" href="https://store.steampowered.com/app/' + esc(item.steam.appid) +
+        '/#app_reviews_hash" target="_blank" rel="noopener">💬 Avis Steam</a>';
+    }
+    if (item.igdbSlug) {
+      html += '<a class="btn-action" href="https://www.igdb.com/games/' + esc(item.igdbSlug) + '" target="_blank" rel="noopener">📰 IGDB</a>';
+    }
+    html += "</div>";
+    html += renderGameTracking(item);
+    if (item.overview) {
+      html +=
+        '<div class="sheet-section"><div class="sheet-section-title"><span>Résumé</span></div><p class="sheet-overview">' +
+        esc(item.overview) +
+        "</p></div>";
+    }
+    elModalSheet.innerHTML = html;
+  }
+
+  function renderGamesInfo() {
+    const counts = GP_TIERS.map(([t, lbl]) => {
+      const n = (GAMES.games || []).filter((g) => (GP_RANK[g.tier] || 9) <= GP_RANK[t]).length;
+      return "<li><strong>" + esc(lbl) + "</strong> : " + n + " jeux · " + GP_CLOUD_HOURS[t] + " h de cloud par mois</li>";
+    }).join("");
+    let html = '<div class="sheet-handle"></div><div class="sheet-top"><div class="sheet-info"><div class="sheet-title">☁️ Game Pass en cloud</div>';
+    html +=
+      '<div class="card-orig" style="white-space:normal">Marché ' + esc(GAMES.market || "PL") +
+      (GAMES.generatedAt ? " · mis à jour le " + esc(fmtDateFr(GAMES.generatedAt)) : "") + "</div></div>";
+    html += '<button type="button" class="sheet-close" data-action="close-modal" aria-label="Fermer">✕</button></div>';
+    html +=
+      '<div class="sheet-section"><div class="sheet-section-title"><span>Ce que donne chaque offre</span></div><ul class="cite-list">' +
+      counts +
+      "</ul><p class=\"sheet-overview\" style=\"margin-top:8px\">Chaque jeu affiche l'offre la moins chère qui l'inclut (Essential ⊂ Premium ⊂ Ultimate). Depuis novembre 2026, Xbox plafonne le cloud par mois ; des packs d'heures sont vendus au-delà.</p></div>";
+    html +=
+      '<div class="sheet-section"><div class="sheet-section-title"><span>Sources</span></div><ul class="cite-list">' +
+      "<li>Catalogue : listes publiques de xbox.com/play (jeux cloud du marché " + esc(GAMES.market || "PL") + ", celui de ton VPN), rafraîchies chaque nuit.</li>" +
+      "<li>Note : % d'avis positifs Steam (classement pondéré par le nombre d'avis, façon SteamDB). Sans version Steam : note presse IGDB, sinon note du Store Xbox.</li>" +
+      (GAMES.igdb ? "<li>Durée : temps moyen pour finir le jeu (IGDB).</li>" : "<li>Durée : pas encore disponible (IGDB non configuré).</li>") +
+      "</ul></div>";
+    elModalSheet.innerHTML = html;
+  }
+
+  function doSetGame(item, status) {
+    const u = me();
+    if (!u) {
+      toast("Connecte-toi pour cocher tes jeux", true);
+      return;
+    }
+    if (!u.games) u.games = new Map();
+    if (status) u.games.set(item.id, status);
+    else u.games.delete(item.id);
+    saveCache();
+    renderAll();
+    if (state.modalKey) renderModalContent();
+
+    HH.pending++;
+    renderAccountButton();
+    writeQueue = writeQueue
+      .then(() => callFn("POST", { action: "set_game", id: item.id, status: status || null }))
+      .then((res) => {
+        HH.pending--;
+        if (HH.pending === 0 && res && res.user) {
+          HH.users = HH.users.map((x) =>
+            x.email === String(res.user.email || "").toLowerCase() ? normalizeUser(res.user, x) : x
+          );
+          saveCache();
+          renderAll();
+          if (state.modalKey) renderModalContent();
+        } else {
+          renderAccountButton();
+        }
+      })
+      .catch((err) => {
+        HH.pending--;
+        toast("⚠️ Échec de l'enregistrement : " + err.message, true);
+        if (HH.pending === 0) refreshState(true);
+      });
+  }
+
   function renderModalContent() {
     if (state.modalKey === "__account__") {
       renderAccountSheet();
+      return;
+    }
+    if (state.modalKey === "__gamesinfo__") {
+      renderGamesInfo();
       return;
     }
     if (state.modalKey === "__bdsources__") {
@@ -2478,6 +2858,10 @@
     }
     if (item.type === "bd") {
       renderBdModal(item);
+      return;
+    }
+    if (item.type === "game") {
+      renderGameModal(item);
       return;
     }
     const m = me();
@@ -2633,7 +3017,8 @@
   elMainTabs.addEventListener("click", (e) => {
     const btn = e.target.closest(".tab-btn");
     if (!btn || btn.dataset.tab === state.tab) return;
-    if ((btn.dataset.tab === "reading") !== (state.tab === "reading")) {
+    const family = (t) => (t === "reading" ? "r" : t === "games" ? "g" : "v");
+    if (family(btn.dataset.tab) !== family(state.tab)) {
       state.genre = "all";
       state.preset = "none";
       state.sort = "imdb";
@@ -2734,6 +3119,24 @@
       case "bd-sources":
         openModal("__bdsources__");
         break;
+      case "games-info":
+        openModal("__gamesinfo__");
+        break;
+      case "set-game-tier":
+        state.gameTier = val;
+        try {
+          localStorage.setItem("popcorn_game_tier", val);
+        } catch (_) {
+          /* ignore */
+        }
+        renderAll();
+        break;
+      case "game-set": {
+        if (!item) break;
+        const want = target.dataset.st;
+        doSetGame(item, gameEntry(me(), item) === want ? null : want);
+        break;
+      }
       case "bd-set": {
         if (!item) break;
         const want = target.dataset.st;

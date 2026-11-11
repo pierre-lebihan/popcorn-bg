@@ -9,6 +9,7 @@
 // - Section Lecture : les mangas / webtoons lus sont lus et écrits sur le compte AniList de chacun
 //   (jeton OAuth AniList stocké dans public.popcorn_user_state, relié en 1 clic depuis l'app).
 // - Section Lecture : les BD & comics lus sont stockés dans public.popcorn_user_state (colonne bd).
+// - Section Jeux : les jeux Game Pass joués / en cours / masqués sont stockés dans popcorn_user_state (colonne games).
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -211,7 +212,7 @@ async function fetchAllPages(path: string, sessionId: string): Promise<any[]> {
 async function getDbUserState(u: HouseholdMember) {
   const { data } = await adminSb
     .from("popcorn_user_state")
-    .select("movies, locked_tv, episodes, hidden_movies, bd")
+    .select("movies, locked_tv, episodes, hidden_movies, bd, games")
     .eq("email", u.email)
     .maybeSingle();
 
@@ -224,6 +225,7 @@ async function getDbUserState(u: HouseholdMember) {
     lockedTv: (data?.locked_tv ?? []) as number[],
     episodes: (data?.episodes ?? {}) as Record<string, [number, number, number][]>,
     bd: (data?.bd ?? {}) as BdState,
+    games: (data?.games ?? {}) as GameState,
   };
 }
 
@@ -270,10 +272,10 @@ async function getUserState(u: HouseholdMember) {
   await saveDbUserState(u, res);
   const { data: hid } = await adminSb
     .from("popcorn_user_state")
-    .select("hidden_movies, bd")
+    .select("hidden_movies, bd, games")
     .eq("email", u.email)
     .maybeSingle();
-  return { ...res, hiddenMovies: (hid?.hidden_movies ?? []) as number[], bd: (hid?.bd ?? {}) as BdState };
+  return { ...res, hiddenMovies: (hid?.hidden_movies ?? []) as number[], bd: (hid?.bd ?? {}) as BdState, games: (hid?.games ?? {}) as GameState };
 }
 
 const rate = (path: string, sid: string, value: number) =>
@@ -628,6 +630,22 @@ async function setBd(u: HouseholdMember, id: string, status: string | null, volu
     .upsert({ email: u.email, name: u.name, bd, updated_at: new Date().toISOString() }, { onConflict: "email" });
 }
 
+// ---------- Jeux Game Pass (stockés dans Supabase) ----------
+
+// { productId: statut }
+type GameState = Record<string, string>;
+const GAME_STATUSES = new Set(["played", "playing", "hidden"]);
+
+async function setGame(u: HouseholdMember, id: string, status: string | null) {
+  const { data } = await adminSb.from("popcorn_user_state").select("games").eq("email", u.email).maybeSingle();
+  const games: GameState = { ...((data?.games ?? {}) as GameState) };
+  if (status) games[id] = status;
+  else delete games[id];
+  await adminSb
+    .from("popcorn_user_state")
+    .upsert({ email: u.email, name: u.name, games, updated_at: new Date().toISOString() }, { onConflict: "email" });
+}
+
 // ---------- Handler ----------
 
 Deno.serve(async (req) => {
@@ -731,6 +749,17 @@ Deno.serve(async (req) => {
         .filter((x: number) => Number.isInteger(x) && x >= 0 && x < 500)
         .slice(0, 500);
       await setBd(me, id, status, volume, [...new Set<number>(albums)].sort((a, b) => a - b));
+      const state = await getDbUserState(me);
+      return json(req, { ok: true, user: { ...state, anilistLinked: Boolean(me.anilistToken && me.anilistUserId) } });
+    }
+
+    // 2e. Jeux : marquer un jeu Game Pass (joué, en cours, masqué, ou rien)
+    if (payload.action === "set_game") {
+      const id = String(payload.id ?? "");
+      if (!/^[0-9A-Z]{8,20}$/.test(id)) throw new HttpError(400, "id invalide");
+      const status = payload.status ? String(payload.status) : null;
+      if (status && !GAME_STATUSES.has(status)) throw new HttpError(400, "statut invalide");
+      await setGame(me, id, status);
       const state = await getDbUserState(me);
       return json(req, { ok: true, user: { ...state, anilistLinked: Boolean(me.anilistToken && me.anilistUserId) } });
     }
