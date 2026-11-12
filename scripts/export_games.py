@@ -6,7 +6,8 @@ chaque jeu l'abonnement minimum qui l'inclut (Essential < Premium < Ultimate) et
 Sources (aucune clé obligatoire) :
 - Catalogue Microsoft (endpoints publics, non documentés, ceux de xbox.com/play) :
     * catalog.gamepass.com/sigls/v2 « All games » + /subscriptions : la liste des jeux cloud ;
-    * catalog.gamepass.com/v3/products : programmes cloud et abonnements qui incluent chaque jeu ;
+    * sigls « Jeux inclus » Essential / Premium / Ultimate : l'offre minimum de chaque jeu ;
+    * catalog.gamepass.com/v3/products : jouable en cloud ou non, prix ;
     * displaycatalog.mp.microsoft.com : titre FR, résumé, genres, date de sortie, jaquette, note du Store ;
     * sigls « Leaving soon » : jeux qui quittent bientôt le Game Pass.
 - Steam (public, sans clé) : jeu retrouvé par la recherche du Store, avis positifs / négatifs via SteamSpy,
@@ -43,17 +44,6 @@ PREV_URL = "https://pierre-lebihan.github.io/popcorn-bg/games.json"
 
 ALL_GAMES_SIGLS = ["29a81209-df6f-41fd-a528-2ae6b91f719c", "1bf84c2b-0643-4591-893f-d9edb703f692"]
 LEAVING_SIGLS = ["393f05bf-e596-4ef6-9487-6d4fa0eab987", "cc7fc951-d00f-410e-9e02-5e4628e04163"]
-
-# Abonnements Game Pass (ProductId Microsoft). Un jeu est « inclus » dans une offre si l'un de ces
-# identifiants apparaît dans ses PassMetadataByPassProductId (hiérarchie Essential ⊂ Premium ⊂ Ultimate,
-# Ultimate inclut aussi EA Play ; Starter = l'édition Discord Nitro, incluse dès Essential).
-STARTER, ESSENTIAL, PREMIUM, ULTIMATE, EA_PLAY = (
-    "CFQ7TTC10QFD", "CFQ7TTC0K5DJ", "CFQ7TTC0P85B", "CFQ7TTC0KHS0", "CFQ7TTC0K5DH")
-TIERS = [
-    ("essential", {ESSENTIAL, STARTER}),
-    ("premium", {PREMIUM, ESSENTIAL, STARTER}),
-    ("ultimate", {ULTIMATE, PREMIUM, ESSENTIAL, STARTER, EA_PLAY}),
-]
 
 GENRES_FR = {
     "Action & adventure": "Action-aventure",
@@ -109,6 +99,26 @@ def http(method: str, url: str, *, retries: int = 4, **kw) -> requests.Response:
 
 # ---------- Catalogue Microsoft ----------
 
+# Listes officielles « Jeux inclus dans ton abonnement » (celles de xbox.com/play), version console = cloud.
+# PassMetadataByPassProductId ne suffit pas : il cite aussi les abonnements qui donnent une simple
+# réduction (ex. Clair Obscur : Premium dans les métadonnées, mais absent des listes Premium et Ultimate).
+TIER_SIGLS = [
+    ("essential", "34031711-5a70-4196-bab7-45757dc2294e", "cfq7ttc0k5dj"),
+    ("premium", "09a72c0d-c466-426a-9580-b78955d8173a", "cfq7ttc0p85b"),
+    ("ultimate", "97c6c862-d28a-4907-a3d5-c401f2296a53", "cfq7ttc0khs0"),
+]
+
+
+def tier_lists(market: str) -> dict[str, set[str]]:
+    out: dict[str, set[str]] = {}
+    for name, sigl, sub in TIER_SIGLS:
+        r = http("GET", f"{GP}/sigls/v3", params={"id": sigl, "language": "en-us", "market": market,
+                                                  "platformContext": "ConsoleGen8;ConsoleGen9",
+                                                  "subscriptionContext": sub})
+        out[name] = {x["id"].upper() for x in r.json() if isinstance(x, dict) and isinstance(x.get("id"), str)}
+    return out
+
+
 def sigl_ids(sigl: str, market: str) -> list[str]:
     r = http("GET", f"{GP}/sigls/v2", params={"id": sigl, "language": "en-us", "market": market})
     return [x["id"] for x in r.json() if isinstance(x, dict) and isinstance(x.get("id"), str)]
@@ -159,10 +169,6 @@ def display_products(ids: list[str], market: str) -> dict[str, dict]:
             log(f"  fiches {min(i + 20, len(ids))}/{len(ids)}")
         time.sleep(0.3)
     return out
-
-
-def tiers_of(sub_ids: set[str]) -> list[str]:
-    return [name for name, skus in TIERS if sub_ids & skus]
 
 
 def img_url(u: str, w: int = 300) -> str:
@@ -345,6 +351,14 @@ def main() -> None:
     if not ids:
         raise SystemExit("Catalogue Game Pass vide : on garde le games.json existant")
 
+    try:
+        included = tier_lists(market)
+        log("🎮 listes officielles : " + ", ".join(f"{k} {len(v)}" for k, v in included.items()))
+    except Exception as e:  # noqa: BLE001
+        raise SystemExit(f"Listes Game Pass indisponibles ({e}) : on garde le games.json existant")
+    if not all(included.values()):
+        raise SystemExit("Une liste Game Pass est vide : on garde le games.json existant")
+
     leaving: set[str] = set()
     for s in LEAVING_SIGLS:
         try:
@@ -360,8 +374,7 @@ def main() -> None:
         cloud = ((p.get("XCloudOfferings") or {}).get("CLOUDGAMING"))
         if not isinstance(cloud, dict):
             continue  # pas jouable en cloud (version PC uniquement, pack, édition…)
-        subs = set((p.get("PassMetadataByPassProductId") or {}).keys())
-        tiers = tiers_of(subs)
+        tiers = [name for name, _, _ in TIER_SIGLS if pid.upper() in included[name]]
         msrp = ((p.get("AnonymousPrice") or {}).get("MSRP")) or {}
         programs = set(cloud.get("Programs") or [])
         if tiers:
