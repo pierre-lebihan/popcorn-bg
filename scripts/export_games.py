@@ -414,6 +414,9 @@ def main() -> None:
             log(f"🎮 IGDB : {len(igdb)} jeux reconnus, {sum(1 for x in igdb.values() if x.get('hours'))} avec durée")
         except Exception as e:  # noqa: BLE001
             log(f"  ⚠️ IGDB : {e}")
+    else:
+        missing = [n for n, v in (("TWITCH_CLIENT_ID", cid), ("TWITCH_CLIENT_SECRET", secret)) if not v]
+        log(f"🎮 IGDB ignoré : secret(s) GitHub Actions absent(s) ou vide(s) : {', '.join(missing)}")
 
     # 5. Steam (avec cache depuis le games.json publié)
     prev = load_previous(out_path)
