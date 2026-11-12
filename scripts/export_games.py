@@ -143,7 +143,9 @@ def subscription_ids(market: str) -> list[str]:
     return [x for x in out if re.fullmatch(r"[0-9A-Z]{12}", x)]
 
 
-def gp_products(ids: list[str], market: str) -> dict[str, dict]:
+def gp_products(ids: list[str], market: str, deadline: float = 0) -> dict[str, dict]:
+    """Fiches catalogue (offre cloud, prix). Un lot en échec ou hors délai est simplement absent du résultat :
+    l'appelant reprend alors ces jeux depuis l'export précédent au lieu de tout perdre."""
     url = f"{GP}/v3/products"
     params = {"market": market, "language": "en-us", "hydration": "RemoteHighSapphire0"}
     headers = {"ms-cv": "cv", "calling-app-name": "popcorn-bg", "calling-app-version": "1.0",
@@ -152,8 +154,14 @@ def gp_products(ids: list[str], market: str) -> dict[str, dict]:
     batches = [ids[i:i + 50] for i in range(0, len(ids), 50)]
 
     def fetch(batch: list[str]) -> dict:
-        r = http("POST", url, params=params, headers=headers, json={"Products": batch})
-        return (r.json() or {}).get("Products") or {}
+        if deadline and time.time() > deadline:
+            return {}
+        try:
+            r = http("POST", url, params=params, headers=headers, json={"Products": batch})
+            return (r.json() or {}).get("Products") or {}
+        except Exception as e:  # noqa: BLE001
+            log(f"  ⚠️ lot catalogue abandonné : {str(e)[:100]}")
+            return {}
 
     # 4 lots en parallèle : en série, l'export dépasse parfois 25 min quand le serveur répond lentement (504)
     done = 0
@@ -301,15 +309,19 @@ def core(s: str) -> str:
 def steam_search(title: str) -> int | None:
     q = re.sub(r"\s*[\(\[].*?(preview|windows|xbox|pc).*?[\)\]]", "", title, flags=re.I)
     q = re.sub(r"[™®©]", "", q).strip()
-    r = http("GET", "https://store.steampowered.com/api/storesearch/", params={"term": q, "l": "english", "cc": "PL"})
-    items = [x for x in (r.json() or {}).get("items") or [] if x.get("type") == "app"]
     want_full, want_core = norm(q), core(q)
-    for x in items:  # nom identique
-        if norm(x.get("name", "")) == want_full:
-            return int(x["id"])
-    for x in items:  # identique aux mentions d'édition près
-        if core(x.get("name", "")) == want_core and want_core:
-            return int(x["id"])
+    # 2e recherche sans les mentions d'édition : « Gears 5 Game of the Year Edition » ne trouve rien sur Steam,
+    # « gears 5 » trouve le jeu.
+    terms = [q] + ([want_core] if want_core and want_core != want_full else [])
+    for term in terms:
+        r = http("GET", "https://store.steampowered.com/api/storesearch/", params={"term": term, "l": "english", "cc": "PL"})
+        items = [x for x in (r.json() or {}).get("items") or [] if x.get("type") == "app"]
+        for x in items:  # nom identique
+            if norm(x.get("name", "")) == want_full:
+                return int(x["id"])
+        for x in items:  # identique aux mentions d'édition près
+            if core(x.get("name", "")) == want_core and want_core:
+                return int(x["id"])
     return None
 
 
@@ -349,14 +361,28 @@ class Igdb:
         return int(v.get("id") if isinstance(v, dict) else v or 0)
 
     def enrich(self, product_ids: list[str]) -> dict[str, dict]:
-        """{productId: {igdb, steam, press, pressVotes, hours}}"""
+        """{productId: {igdb, steam, press, pressVotes, hours, mp, slug, parent}}
+
+        Une édition (GOTY, Definitive, Standard…) a souvent sa propre fiche IGDB, vide : pas de note presse,
+        pas de lien Steam. On remonte alors au jeu d'origine (version_parent) et on lui emprunte ce qui manque.
+        """
         pid_game: dict[str, int] = {}
         for i in range(0, len(product_ids), 200):
             ids = ",".join(f'"{p}"' for p in product_ids[i:i + 200])
             for x in self.q("external_games", f"fields game,uid,category,external_game_source; where uid = ({ids}); limit 500;"):
                 if self.src(x) == 11 and x.get("game"):
                     pid_game[x["uid"].upper()] = int(x["game"])
-        games = sorted(set(pid_game.values()))
+        own = sorted(set(pid_game.values()))
+        parent: dict[int, int] = {}
+        for i in range(0, len(own), 200):
+            ids = ",".join(map(str, own[i:i + 200]))
+            try:
+                for g in self.q("games", f"fields id,version_parent; where id = ({ids}) & version_parent != null; limit 500;"):
+                    if g.get("version_parent"):
+                        parent[g["id"]] = int(g["version_parent"])
+            except Exception as e:  # noqa: BLE001
+                log(f"  ⚠️ IGDB version_parent : {str(e)[:160]}")
+        games = sorted(set(own) | set(parent.values()))
         info: dict[int, dict] = {g: {} for g in games}
         for i in range(0, len(games), 200):
             ids = ",".join(map(str, games[i:i + 200]))
@@ -379,7 +405,94 @@ class Igdb:
             for x in self.q("external_games", f"fields game,uid,category,external_game_source; where game = ({ids}); limit 500;"):
                 if self.src(x) == 1 and str(x.get("uid", "")).isdigit() and x.get("game") in info:
                     info[x["game"]].setdefault("steam", int(x["uid"]))
-        return {pid: {"igdb": g, **info.get(g, {})} for pid, g in pid_game.items()}
+        out: dict[str, dict] = {}
+        inherited = 0
+        for pid, g in pid_game.items():
+            d = {"igdb": g, **info.get(g, {})}
+            par = info.get(parent.get(g, 0))
+            if par:
+                took = False
+                if not (d.get("press") and d.get("pressVotes", 0) >= 3) and par.get("press") and par.get("pressVotes", 0) >= 3:
+                    d["press"], d["pressVotes"], took = par["press"], par["pressVotes"], True
+                for k in ("steam", "hours", "mp"):
+                    if not d.get(k) and par.get(k):
+                        d[k], took = par[k], True
+                if took:
+                    d["parent"] = par.get("slug", "")
+                    inherited += 1
+            out[pid] = d
+        log(f"  IGDB : {len(parent)} éditions rattachées à leur jeu d'origine, {inherited} complétées par lui")
+        return out
+
+
+# ---------- Note de classement ----------
+
+STEAM_SURE = 50  # avis Steam à partir desquels la note Steam fait foi
+PRESS_MIN_VOTES = 3
+XBOX_MIN_VOTES = 50
+# Recalage par défaut sur l'échelle Steam (régression mesurée le 12/11/2026 sur 235 jeux ayant ≥ 500 avis Steam),
+# utilisé si l'export n'a pas assez de jeux notés des deux côtés pour refaire la régression.
+DEFAULT_FIT = {"presse": (0.45, 47.9, 10.2), "xbox": (12.5, 34.5, 8.6)}
+
+
+def _fit(pairs: list[tuple[float, float]], default: tuple[float, float, float]) -> tuple[float, float, float]:
+    """Régression linéaire y = a·x + b (+ écart-type résiduel). Le coefficient < 1 tire naturellement
+    les notes extrêmes d'une source peu fiable vers la moyenne, comme le fait la note SteamDB."""
+    n = len(pairs)
+    if n < 40:
+        return default
+    sx = sum(x for x, _ in pairs); sy = sum(y for _, y in pairs)
+    sxx = sum(x * x for x, _ in pairs); sxy = sum(x * y for x, y in pairs)
+    den = n * sxx - sx * sx
+    if not den:
+        return default
+    a = (n * sxy - sx * sy) / den
+    b = (sy - a * sx) / n
+    sd = math.sqrt(sum((a * x + b - y) ** 2 for x, y in pairs) / n) or default[2]
+    if a <= 0:
+        return default
+    return a, b, sd
+
+
+def apply_scores(games: list[dict]) -> None:
+    """Note de classement 0-100 sur l'échelle Steam (SteamDB).
+
+    - Steam fait foi dès STEAM_SURE avis (note SteamDB, déjà tirée vers 50 % quand il y a peu d'avis).
+    - Sinon, presse IGDB et Store Xbox sont recalés sur l'échelle Steam (régression sur les jeux notés des deux
+      côtés) puis combinés selon leur fiabilité. Avant, un 97 presse fondé sur 3 critiques passait devant
+      un 96,7 % Steam sur 140 000 avis (Gears of War 3 premier du classement).
+    - Peu de critiques ou de votes Xbox : la note est en plus tirée vers la moyenne Steam.
+    """
+    sure = [g for g in games if g["steam"].get("total", 0) >= 500 and g["steamRating"]]
+    mean = sum(g["steamRating"] for g in sure) / len(sure) if len(sure) >= 40 else 80.0
+    fits = {
+        "presse": _fit([(g["press"], g["steamRating"]) for g in sure if g["press"] and g["pressVotes"] >= PRESS_MIN_VOTES],
+                       DEFAULT_FIT["presse"]),
+        "xbox": _fit([(g["xboxRating"], g["steamRating"]) for g in sure if g["xboxVotes"] >= XBOX_MIN_VOTES],
+                     DEFAULT_FIT["xbox"]),
+    }
+    log("🎯 Recalage sur l'échelle Steam : " + ", ".join(f"{k} ×{a:.2f} {b:+.1f} (±{sd:.1f})" for k, (a, b, sd) in fits.items())
+        + f", moyenne Steam {mean:.1f}")
+    for g in games:
+        if g["steamRating"] and g["steam"].get("total", 0) >= STEAM_SURE:
+            g["score"], g["scoreSrc"] = g["steamRating"], "steam"
+            continue
+        parts = []  # (valeur recalée, poids = 1 / variance), poids réduit quand il y a peu de critiques / votes
+        if g["press"] and g["pressVotes"] >= PRESS_MIN_VOTES:
+            a, b, sd = fits["presse"]
+            parts.append(("presse", a * g["press"] + b, 1 / sd ** 2 * g["pressVotes"] / (g["pressVotes"] + 5)))
+        if g["xboxVotes"] >= XBOX_MIN_VOTES:
+            a, b, sd = fits["xbox"]
+            parts.append(("xbox", a * g["xboxRating"] + b, 1 / sd ** 2 * g["xboxVotes"] / (g["xboxVotes"] + 300)))
+        if g["steamRating"]:  # quelques avis Steam (20 à STEAM_SURE) : pris en compte, avec peu de poids
+            n = g["steam"]["total"]
+            parts.append(("steam", g["steamRating"], 1 / 12 ** 2 * n / (n + 50)))
+        if not parts:
+            continue
+        prior = 1 / 12 ** 2 * 0.15  # « moyenne Steam » : pèse peu, seulement quand les sources sont maigres
+        w = sum(p[2] for p in parts) + prior
+        g["score"] = round(min(100.0, (sum(p[1] * p[2] for p in parts) + mean * prior) / w), 1)
+        g["scoreSrc"] = max(parts, key=lambda p: p[2])[0]
 
 
 # ---------- Export ----------
@@ -446,8 +559,20 @@ def main() -> None:
             log(f"  ⚠️ leaving soon {s[:8]} : {e}")
 
     # 2. Abonnements qui incluent chaque jeu + programme cloud
-    prods = gp_products(ids, market)
-    log(f"🎮 {len(prods)} fiches catalogue")
+    # Le serveur du catalogue répond parfois très lentement (504 en série : 28 min le 12/11, export tué par le
+    # timeout, games.json jamais republié). On interroge d'abord les jeux déjà connus comme jouables en cloud et
+    # ceux des listes Game Pass, avec un budget de temps ; ce qui manque est repris de l'export précédent.
+    prev = load_previous(out_path)
+    prev_by_id = {g["id"]: g for g in prev.get("games") or [] if g.get("id")}
+    in_lists = set().union(*included.values())
+    ids.sort(key=lambda i: (0 if i.upper() in in_lists else 1 if i in prev_by_id else 2))
+    cat_budget = float(os.environ.get("CATALOG_BUDGET_MIN", "12"))
+    cat_deadline = time.time() + cat_budget * 60
+    if args.max_minutes:
+        cat_deadline = min(cat_deadline, started + args.max_minutes * 60 * 0.6)
+    prods = gp_products(ids, market, cat_deadline)
+    missing = [i for i in ids if i not in prods]
+    log(f"🎮 {len(prods)} fiches catalogue" + (f", {len(missing)} manquantes (délai ou erreurs)" if missing else ""))
     by_title: dict[str, dict] = {}
     for pid, p in prods.items():
         cloud = ((p.get("XCloudOfferings") or {}).get("CLOUDGAMING"))
@@ -472,6 +597,23 @@ def main() -> None:
         # (puis, à offre égale, l'édition au titre le plus court = l'édition de base)
         if not cur or (TIER_RANK[tier], len(cand["titleEn"])) < (TIER_RANK[cur["tier"]], len(cur["titleEn"])):
             by_title[key] = cand
+    # Jeux dont la fiche catalogue n'a pas pu être lue : repris de l'export précédent, offre recalculée
+    reused = 0
+    for pid in missing:
+        old = prev_by_id.get(pid)
+        if not old or old.get("tier") not in TIER_RANK:
+            continue
+        key = old.get("xcloud") or pid
+        if key in by_title:
+            continue
+        tiers = [name for name, _, _ in TIER_SIGLS if pid.upper() in included[name]]
+        tier = tiers[0] if tiers else (old["tier"] if old["tier"] in ("free", "buy") else "buy")
+        by_title[key] = {"pid": pid, "titleEn": old.get("en") or old.get("title") or "", "tier": tier,
+                         "xcloud": old.get("xcloud") or "", "price": old.get("price") or "" if tier == "buy" else "",
+                         "priceValue": float(old.get("priceValue") or 0) if tier == "buy" else 0}
+        reused += 1
+    if reused:
+        log(f"🎮 {reused} jeux repris de l'export précédent (fiche catalogue indisponible)")
     # Game Pass d'abord (pour que le budget Steam serve en priorité à ces jeux), puis gratuits, puis à acheter
     games = sorted(by_title.values(), key=lambda g: TIER_RANK[g["tier"]])
     if args.limit:
@@ -498,8 +640,6 @@ def main() -> None:
         log(f"🎮 IGDB ignoré : secret(s) GitHub Actions absent(s) ou vide(s) : {', '.join(missing)}")
 
     # 5. Steam (avec cache depuis le games.json publié)
-    prev = load_previous(out_path)
-    prev_by_id = {g["id"]: g for g in prev.get("games") or [] if g.get("id")}
     prev_gp = any(TIER_RANK.get(x.get("tier"), 9) <= 3 for x in prev_by_id.values())
 
     def added_at(old: dict, tier: str) -> str:
@@ -522,17 +662,23 @@ def main() -> None:
         old = prev_by_id.get(pid) or {}
         ig = igdb.get(pid, {})
         st = old.get("steam") or {}
-        fresh = st.get("at") and (today - datetime.date.fromisoformat(st["at"])).days < (
-            STEAM_TTL_DAYS if st.get("appid") else STEAM_MISS_TTL_DAYS)
+        # Un jeu trouvé sur Steam mais sans compteurs d'avis (SteamSpy en échec) n'est jamais « à jour » :
+        # avant, la date était posée avant l'appel qui échouait et le jeu restait 7 jours sans avis.
+        fresh = st.get("at") and (st.get("appid") is not None) and (not st.get("appid") or "pos" in st) and (
+            today - datetime.date.fromisoformat(st["at"])).days < (STEAM_TTL_DAYS if st.get("appid") else STEAM_MISS_TTL_DAYS)
+        # Le lien Steam d'IGDB (ou du jeu parent pour une édition) prime sur une recherche par nom ratée
+        if not st.get("appid") and ig.get("steam") and st.get("appid") != ig["steam"]:
+            fresh = False
         if not fresh and time.time() < deadline and steam_fail < 15:
             try:
                 appid = ig.get("steam") or st.get("appid") or steam_search(g["titleEn"] or m.get("title", ""))
                 steam_calls += 1
-                st = {"appid": appid or 0, "at": today.isoformat()}
+                new_st = {"appid": appid or 0, "at": today.isoformat()}
                 if appid:
                     time.sleep(1.0)  # SteamSpy : 1 requête / s
-                    st.update(steam_reviews(appid))
+                    new_st.update(steam_reviews(appid))
                     steam_calls += 1
+                st = new_st  # mis en cache seulement si tout a réussi
                 time.sleep(0.5)
                 steam_fail = 0
             except Exception as e:  # noqa: BLE001
@@ -541,15 +687,6 @@ def main() -> None:
         if st.get("appid"):
             steam_found += 1
         sdb = steamdb_rating(st.get("pos", 0), st.get("total", 0)) if st.get("total", 0) >= 20 else 0
-        # Note de classement (0-100) : SteamDB, sinon presse IGDB, sinon Store Xbox (sur 5)
-        if sdb:
-            score, score_src = sdb, "steam"
-        elif ig.get("press") and ig.get("pressVotes", 0) >= 3:
-            score, score_src = float(ig["press"]), "presse"
-        elif m.get("xboxVotes", 0) >= 50:
-            score, score_src = round(m["xboxRating"] * 20 * 0.95, 1), "xbox"  # léger malus : notes Store gonflées
-        else:
-            score, score_src = 0.0, ""
         title = m.get("title") or g["titleEn"]
         out.append({
             "id": pid,
@@ -567,12 +704,14 @@ def main() -> None:
             "genres": m.get("genres", []),
             "overview": m.get("overview", ""),
             "cover": m.get("cover", ""),
-            "score": score,
-            "scoreSrc": score_src,
+            "score": 0.0,  # calculé plus bas (apply_scores), une fois les échelles recalées
+            "scoreSrc": "",
             "steam": st,
             "steamRating": sdb,
             "votes": st.get("total", 0),
             "press": ig.get("press", 0),
+            "pressVotes": ig.get("pressVotes", 0),
+            "igdbParent": ig.get("parent", ""),
             "hours": ig.get("hours", 0),
             "mp": m.get("mp") or ig.get("mp") or {},
             "igdbSlug": ig.get("slug", ""),
@@ -582,6 +721,7 @@ def main() -> None:
             "addedAt": added_at(old, g["tier"]),
         })
 
+    apply_scores(out)
     out.sort(key=lambda x: (-x["score"], -x["votes"]))
     payload = {
         "generatedAt": datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(timespec="seconds"),
