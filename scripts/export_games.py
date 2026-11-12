@@ -24,6 +24,7 @@ Usage :
   GAMEPASS_MARKET=PL python scripts/export_games.py [--out docs/games.json]
 """
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import datetime
 import json
 import math
@@ -148,11 +149,20 @@ def gp_products(ids: list[str], market: str) -> dict[str, dict]:
     headers = {"ms-cv": "cv", "calling-app-name": "popcorn-bg", "calling-app-version": "1.0",
                "Content-Type": "application/json"}
     out: dict[str, dict] = {}
-    for i in range(0, len(ids), 50):
-        batch = ids[i:i + 50]
+    batches = [ids[i:i + 50] for i in range(0, len(ids), 50)]
+
+    def fetch(batch: list[str]) -> dict:
         r = http("POST", url, params=params, headers=headers, json={"Products": batch})
-        out.update((r.json() or {}).get("Products") or {})
-        log(f"  catalogue {min(i + 50, len(ids))}/{len(ids)}")
+        return (r.json() or {}).get("Products") or {}
+
+    # 4 lots en parallèle : en série, l'export dépasse parfois 25 min quand le serveur répond lentement (504)
+    done = 0
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        for res in pool.map(fetch, batches):
+            out.update(res)
+            done += 1
+            if done % 10 == 0 or done == len(batches):
+                log(f"  catalogue {min(done * 50, len(ids))}/{len(ids)}")
         time.sleep(0.3)
     return out
 
