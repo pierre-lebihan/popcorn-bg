@@ -487,7 +487,7 @@
       HH.loadedAt = Date.now();
       progCache.clear();
       saveCache();
-      if (!state.statusTouched) state.status = "todoBoth";
+      if (!state.statusTouched) state.status = defaultStatus();
       if (!silent) toast("✅ Vus synchronisés depuis TMDB");
     } catch (err) {
       if (err.status === 403) {
@@ -933,7 +933,38 @@
     if (field === "hours") return list.some((g) => g.hours > 0);
     if (field === "new") return list.some(isNewGame);
     if (field === "leaving") return list.some((g) => g.leaving);
+    if (field === "multi") return list.some(isMulti);
+    if (field === "duoLocal") return list.some((g) => mpOf(g).local >= 2);
+    if (field === "duoOnline") return list.some((g) => mpOf(g).online >= 2);
+    if (field === "coop") return list.some((g) => mpOf(g).localCoop || mpOf(g).onlineCoop);
     return true;
+  }
+
+  // Multijoueur : « local » = même console / même écran ; « online » = chacun sur son compte (donc aussi en cloud)
+  function mpOf(g) {
+    return (g && g.mp) || {};
+  }
+
+  function isMulti(g) {
+    const mp = mpOf(g);
+    return mp.local >= 2 || mp.online >= 2;
+  }
+
+  function mpRange(n) {
+    return n > 2 ? "2–" + n : "2";
+  }
+
+  function mpPills(item, long) {
+    const mp = mpOf(item);
+    let h = "";
+    if (mp.local >= 2) {
+      h += '<span class="genre-pill mp-pill">🛋️ ' + (long ? "Même écran : " + mpRange(mp.local) + " joueurs" + (mp.localCoop ? " en coop" : "") : mpRange(mp.local) + " local") + "</span>";
+    }
+    if (mp.online >= 2) {
+      h += '<span class="genre-pill mp-pill">☁️ ' + (long ? "En ligne : " + mpRange(mp.online) + " joueurs" + (mp.onlineCoop ? " en coop" : "") : mpRange(mp.online) + " en ligne") + "</span>";
+    }
+    if (long && mp.cross) h += '<span class="genre-pill">🔀 Cross-play PC / console</span>';
+    return h;
   }
 
   function gameSorts() {
@@ -953,7 +984,10 @@
       ["short", "⏱️ Courts (≤ 10 h)"],
       ["new", "🆕 Ajoutés ce mois-ci"],
       ["leaving", "⏳ Quittent bientôt"],
-      ["recent", "📅 Sortis depuis 2023"]
+      ["recent", "📅 Sortis depuis 2023"],
+      ["duoLocal", "🛋️ À plusieurs sur le même écran"],
+      ["duoOnline", "☁️ À plusieurs en ligne (un compte chacun)"],
+      ["coop", "🤝 En coopération"]
     ].filter(([v]) => (v === "short" ? gameHas("hours") : gameHas(v)));
   }
 
@@ -1188,7 +1222,7 @@
         if (session) {
           const email = String(session.user && session.user.email ? session.user.email : "").toLowerCase();
           if (!HH.users.length && loadCache(email)) {
-            if (!state.statusTouched) state.status = "todoBoth";
+            if (!state.statusTouched) state.status = defaultStatus();
             renderAll();
           }
           if (finishAnilistLink()) {
@@ -1248,6 +1282,16 @@
       opts.push(["all", "Tout"]);
       void m;
       return opts;
+    }
+    if (tab === "games") {
+      const g = [["todoMe", "🎮 À jouer"]];
+      if (o) {
+        g.push(["todoBoth", "👥 À jouer à deux (multijoueur)"]);
+        g.push(["todoMeOnly", "🙋 Que moi (" + o.name + " y a joué)"]);
+        g.push(["todoOtherOnly", "💁 Que " + o.name + " (j'y ai joué)"]);
+      }
+      g.push(["catchup", "🎮 En cours"], ["watched", "✅ Joués"], ["locked", "🙈 Masqués"], ["all", "Tout"]);
+      return g;
     }
     const opts = [["todoBoth", o ? "👥 À voir ensemble" : "🍿 À voir"]];
     if (o) {
@@ -1337,6 +1381,11 @@
         if (state.preset === "new" && !isNewGame(item)) return false;
         if (state.preset === "leaving" && !item.leaving) return false;
         if (state.preset === "recent" && Number(item.year || 0) < 2023) return false;
+        if (state.preset === "duoLocal" && !(mpOf(item).local >= 2)) return false;
+        if (state.preset === "duoOnline" && !(mpOf(item).online >= 2)) return false;
+        if (state.preset === "coop" && !(mpOf(item).localCoop || mpOf(item).onlineCoop)) return false;
+        // « À jouer à deux » : seulement les jeux multijoueurs (dès que l'export fournit l'info)
+        if (status === "todoBoth" && other() && gameHas("multi") && !isMulti(item)) return false;
         if (qNorm && !item._search.includes(qNorm)) return false;
         return true;
       }
@@ -1873,6 +1922,7 @@
       '<div class="meta-tags">' + gpPill(item) +
       (item.leaving ? '<span class="genre-pill warn-pill">⏳ Quitte bientôt</span>' : "") +
       (isNewGame(item) ? '<span class="genre-pill new-pill">🆕 Nouveau</span>' : "") +
+      mpPills(item) +
       genrePills +
       "</div>" +
       whoRow(item) +
@@ -2895,6 +2945,7 @@
       (item.hours ? '<span class="genre-pill">⏱️ ~' + item.hours + " h pour le finir</span>" : "") +
       (item.leaving ? '<span class="genre-pill warn-pill">⏳ Quitte bientôt le Game Pass</span>' : "") +
       (isNewGame(item) ? '<span class="genre-pill new-pill">🆕 Ajouté le ' + esc(fmtDateFr(item.addedAt)) + "</span>" : "") +
+      mpPills(item, true) +
       (item.genres || []).map((g) => '<span class="genre-pill">' + esc(g) + "</span>").join("") +
       "</div>";
     html += whoRow(item);
@@ -2917,6 +2968,26 @@
     }
     html += "</div>";
     html += renderGameTracking(item);
+    if (isMulti(item)) {
+      const mp = mpOf(item);
+      const lines = [];
+      if (mp.online >= 2) {
+        lines.push(
+          "☁️ <strong>En ligne</strong> (" + mpRange(mp.online) + " joueurs" + (mp.onlineCoop ? ", coop" : "") + ") : chacun lance le jeu sur son compte, " +
+            "en cloud ou sur console. L'autre joueur doit aussi l'avoir (Game Pass ou achat)."
+        );
+      }
+      if (mp.local >= 2) {
+        lines.push(
+          "🛋️ <strong>Même écran</strong> (" + mpRange(mp.local) + " joueurs" + (mp.localCoop ? ", coop" : "") + ") : un seul compte et plusieurs manettes. " +
+            "Pensé pour une console ou un PC : en cloud, une seule manette est en principe reconnue."
+        );
+      }
+      html +=
+        '<div class="sheet-section"><div class="sheet-section-title"><span>Jouer à plusieurs</span></div><p class="sheet-overview">' +
+        lines.join("<br>") +
+        "</p></div>";
+    }
     if (item.overview) {
       html +=
         '<div class="sheet-section"><div class="sheet-section-title"><span>Résumé</span></div><p class="sheet-overview">' +
@@ -3140,11 +3211,17 @@
     if (chosen) openModal(chosen._key, true);
   }
 
+  function defaultStatus(tab) {
+    const t = tab || state.tab;
+    if (!loggedIn()) return "all";
+    return t === "reading" || t === "games" ? "todoMe" : "todoBoth";
+  }
+
   function resetFilters() {
     state.q = "";
     elSearchInput.value = "";
     elSearchClear.classList.remove("visible");
-    state.status = !loggedIn() ? "all" : state.tab === "reading" ? "todoMe" : "todoBoth";
+    state.status = defaultStatus();
     state.providers.clear();
     state.bookKind = "all";
     state.bdAward = "all";
@@ -3178,14 +3255,7 @@
       state.bdAward = "all";
       state.preset = "none";
       state.sort = "imdb";
-      if (btn.dataset.tab === "reading" && state.status === "todoBoth") {
-        state.status = "todoMe";
-      } else if (
-        state.tab === "reading" &&
-        (state.status === "todoMe" || state.status === "recoOther" || state.status === "readOther" || state.status === "readBoth")
-      ) {
-        state.status = loggedIn() ? "todoBoth" : "all";
-      }
+      state.status = defaultStatus(btn.dataset.tab);
     }
     state.tab = btn.dataset.tab;
     btn.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });

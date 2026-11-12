@@ -208,7 +208,64 @@ def meta_from_display(p: dict | None) -> dict:
         "publisher": (loc.get("PublisherName") or "").strip(),
         "xboxRating": round(float(usage.get("AverageRating") or 0), 1),
         "xboxVotes": int(usage.get("RatingCount") or 0),
+        "mp": multiplayer_from_attrs(props.get("Attributes") or []),
     }
+
+
+def _players(a: dict) -> int:
+    try:
+        return max(2, int(a.get("Maximum") or 0))
+    except (TypeError, ValueError):
+        return 2
+
+
+def multiplayer_from_attrs(attrs: list[dict]) -> dict:
+    """Modes multijoueur déclarés sur la fiche Xbox (XblLocalCoop, XblOnlineMultiPlayer, SharedSplitScreen…).
+
+    local  : nombre max de joueurs sur la même console / le même écran
+    online : nombre max de joueurs en ligne (chacun sur son compte, donc aussi en cloud)
+    """
+    mp: dict = {}
+    for a in attrs:
+        name = str(a.get("Name") or "")
+        low = name.lower()
+        if low.startswith("xblcrossplatform"):
+            mp["cross"] = 1
+            continue
+        where = "local" if ("local" in low or low == "sharedsplitscreen") else "online" if "online" in low else ""
+        if not where or not ("coop" in low or "multiplayer" in low or "splitscreen" in low):
+            continue
+        mp[where] = max(mp.get(where, 0), _players(a))
+        if "coop" in low:
+            mp[where + "Coop"] = 1
+    return mp
+
+
+def multiplayer_from_igdb(g: dict) -> dict:
+    """Repli IGDB : multiplayer_modes (offlinecoop, onlinemax…) puis game_modes (2 multi, 3 coop, 4 écran partagé)."""
+    mp: dict = {}
+    for m in g.get("multiplayer_modes") or []:
+        if not isinstance(m, dict):
+            continue
+        local = max(m.get("offlinemax") or 0, m.get("offlinecoopmax") or 0)
+        if local >= 2 or m.get("offlinecoop") or m.get("splitscreen"):
+            mp["local"] = max(mp.get("local", 0), local, 2)
+        online = max(m.get("onlinemax") or 0, m.get("onlinecoopmax") or 0)
+        if online >= 2 or m.get("onlinecoop"):
+            mp["online"] = max(mp.get("online", 0), online, 2)
+        if m.get("offlinecoop"):
+            mp["localCoop"] = 1
+        if m.get("onlinecoop"):
+            mp["onlineCoop"] = 1
+    if not mp:
+        modes = set(g.get("game_modes") or [])
+        if 4 in modes:
+            mp["local"] = 2
+        if modes & {2, 3, 5, 6}:
+            mp["online"] = 2
+        if 3 in modes:
+            mp["onlineCoop"] = 1
+    return mp
 
 
 # ---------- Steam ----------
@@ -296,6 +353,15 @@ class Igdb:
             for g in self.q("games", f"fields id,aggregated_rating,aggregated_rating_count,slug; where id = ({ids}); limit 500;"):
                 info[g["id"]].update(press=round(g.get("aggregated_rating") or 0),
                                      pressVotes=g.get("aggregated_rating_count") or 0, slug=g.get("slug") or "")
+            try:
+                for g in self.q("games", "fields id,game_modes,multiplayer_modes.offlinecoop,multiplayer_modes.offlinecoopmax,"
+                                         "multiplayer_modes.offlinemax,multiplayer_modes.onlinecoop,multiplayer_modes.onlinecoopmax,"
+                                         f"multiplayer_modes.onlinemax,multiplayer_modes.splitscreen; where id = ({ids}); limit 500;"):
+                    mp = multiplayer_from_igdb(g)
+                    if mp and g.get("id") in info:
+                        info[g["id"]]["mp"] = mp
+            except Exception as e:  # noqa: BLE001
+                log(f"  ⚠️ IGDB multijoueur : {str(e)[:160]}")
             for t in self.q("game_time_to_beats", f"fields game_id,hastily,normally,completely; where game_id = ({ids}); limit 500;"):
                 sec = t.get("normally") or t.get("hastily") or 0
                 if sec and t.get("game_id") in info:
@@ -498,6 +564,7 @@ def main() -> None:
             "votes": st.get("total", 0),
             "press": ig.get("press", 0),
             "hours": ig.get("hours", 0),
+            "mp": m.get("mp") or ig.get("mp") or {},
             "igdbSlug": ig.get("slug", ""),
             "xboxRating": m.get("xboxRating", 0),
             "xboxVotes": m.get("xboxVotes", 0),
@@ -517,6 +584,8 @@ def main() -> None:
     tiers = {t: sum(1 for x in out if x["tier"] == t) for t in TIER_RANK}
     log(f"✅ {len(out)} jeux {tiers}, Steam {steam_found} ({steam_calls} requêtes), "
         f"{sum(1 for x in out if x['leaving'])} sur le départ → {out_path} ({out_path.stat().st_size / 1024:.0f} Ko)")
+    log(f"👥 Multijoueur : {sum(1 for x in out if x['mp'])} jeux, dont {sum(1 for x in out if x['mp'].get('local'))} en local "
+        f"et {sum(1 for x in out if x['mp'].get('online'))} en ligne")
 
 
 if __name__ == "__main__":
