@@ -326,8 +326,11 @@ def main() -> None:
     parser.add_argument("--out", default=str(ROOT_DIR / "docs" / "games.json"))
     parser.add_argument("--steam-budget", type=float, default=float(os.environ.get("STEAM_BUDGET_MIN", "25")),
                         help="minutes max passées à interroger Steam (le reste est complété les nuits suivantes)")
+    parser.add_argument("--max-minutes", type=float, default=float(os.environ.get("EXPORT_MAX_MIN", "0")),
+                        help="durée totale max du script : la collecte Steam s'arrête à temps pour écrire le fichier")
     parser.add_argument("--limit", type=int, default=0, help="(test) ne traiter que N jeux")
     args = parser.parse_args()
+    started = time.time()
     market = os.environ.get("GAMEPASS_MARKET", "PL").strip().upper() or "PL"
     out_path = Path(args.out)
     today = datetime.date.today()
@@ -432,6 +435,9 @@ def main() -> None:
         return today.isoformat() if prev_gp else ""
 
     deadline = time.time() + args.steam_budget * 60
+    if args.max_minutes:
+        deadline = min(deadline, started + args.max_minutes * 60)
+    log(f"🎮 Steam : {max(0, int(deadline - time.time()))} s de collecte disponibles")
     steam_calls = steam_found = steam_fail = 0
     out = []
     for g in games:
