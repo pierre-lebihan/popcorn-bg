@@ -98,7 +98,7 @@ jobs:
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
         run: |
           pip install -r requirements.txt
-          STEAM_BUDGET_MIN=12 timeout 25m python -u scripts/export_games.py --out docs/games.json || curl -fsS -o docs/games.json https://pierre-lebihan.github.io/popcorn-bg/games.json || true
+          STEAM_BUDGET_MIN=15 timeout 25m python -u scripts/export_games.py --out docs/games.json || curl -fsS -o docs/games.json https://pierre-lebihan.github.io/popcorn-bg/games.json || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

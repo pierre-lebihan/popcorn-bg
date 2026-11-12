@@ -867,13 +867,21 @@
     ["premium", "Premium"],
     ["ultimate", "Ultimate"]
   ];
+  // Hors Game Pass, mais jouables en cloud : free-to-play, ou si on possède le jeu
+  const GP_EXTRA = [
+    ["free", "🆓 Gratuits"],
+    ["buy", "🛒 À acheter"]
+  ];
   const GP_RANK = { essential: 1, premium: 2, ultimate: 3 };
   const GP_LABEL = Object.fromEntries(GP_TIERS);
+  const isGamePass = (item) => Boolean(GP_RANK[item.tier]);
   // Heures de cloud incluses par mois (Xbox, à partir de novembre 2026)
   const GP_CLOUD_HOURS = { essential: 5, premium: 10, ultimate: 15 };
   const NEW_DAYS = 30;
 
   function gpPill(item) {
+    if (item.tier === "buy") return '<span class="gp-pill buy">🛒 ' + esc(item.price || "À acheter") + "</span>";
+    if (item.tier === "free") return '<span class="gp-pill free">🆓 Gratuit</span>';
     return '<span class="gp-pill ' + esc(item.tier) + '">' + esc(GP_LABEL[item.tier] || item.tier) + "</span>";
   }
 
@@ -1302,7 +1310,11 @@
 
       if (state.genre !== "all" && !(item.genres || []).includes(state.genre)) return false;
       if (games) {
-        if (state.gameTier !== "all" && (GP_RANK[item.tier] || 9) > (GP_RANK[state.gameTier] || 0)) return false;
+        if (GP_RANK[state.gameTier]) {
+          if (!isGamePass(item) || GP_RANK[item.tier] > GP_RANK[state.gameTier]) return false;
+        } else if (state.gameTier === "free" || state.gameTier === "buy") {
+          if (item.tier !== state.gameTier) return false;
+        } else if (!isGamePass(item)) return false;
         if (state.preset === "masterpiece" && (item.score || 0) < 90) return false;
         if (state.preset === "short" && !(item.hours > 0 && item.hours <= 10)) return false;
         if (state.preset === "new" && !isNewGame(item)) return false;
@@ -1427,7 +1439,7 @@
     document.getElementById("badgeReading").textContent =
       [...(BOOKS.manga || []), ...(BD.bd || [])].filter((x) => matchStatus(x, stRead)).length || "–";
     document.getElementById("badgeGames").textContent =
-      (GAMES.games || []).filter((x) => matchStatus(x, st)).length || "–";
+      (GAMES.games || []).filter((x) => isGamePass(x) && matchStatus(x, st)).length || "–";
     document.getElementById("badgeCatchup").textContent = loggedIn() ? catchupList(me()).length : "–";
     document.querySelectorAll("#mainTabs .tab-btn").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.tab === state.tab);
@@ -1535,6 +1547,7 @@
     if (games) {
       row1 += chip("set-game-tier", "all", "🎮 Toutes offres", state.gameTier === "all");
       GP_TIERS.forEach(([val, lbl]) => (row1 += chip("set-game-tier", val, esc(lbl), state.gameTier === val, "gp-chip " + val)));
+      GP_EXTRA.forEach(([val, lbl]) => (row1 += chip("set-game-tier", val, lbl, state.gameTier === val, "gp-chip " + val)));
     } else if (reading) {
       readingKinds().forEach(([val, lbl]) => (row1 += chip("set-book-kind", val, lbl, state.bookKind === val)));
     } else {
@@ -1612,6 +1625,7 @@
         '<div class="adv-group"><div class="adv-label-row"><span>Mon abonnement (jeux inclus)</span></div><div class="chip-wrap">';
       advHtml += chip("set-game-tier", "all", "Toutes offres", state.gameTier === "all");
       GP_TIERS.forEach(([val, lbl]) => (advHtml += chip("set-game-tier", val, esc(lbl), state.gameTier === val, "gp-chip " + val)));
+      GP_EXTRA.forEach(([val, lbl]) => (advHtml += chip("set-game-tier", val, lbl, state.gameTier === val, "gp-chip " + val)));
       advHtml += "</div></div>";
     } else if (reading) {
       advHtml += '<div class="adv-group"><div class="adv-label-row"><span>Type</span></div><div class="chip-wrap">';
@@ -1971,14 +1985,23 @@
           '<div class="empty-state"><div class="emoji">🎮</div><div>Le catalogue Game Pass n\'est pas encore généré (<code>games.json</code>).</div></div>';
         return;
       }
-      const t = state.gameTier !== "all" ? state.gameTier : "";
+      const t = GP_RANK[state.gameTier] ? state.gameTier : "";
+      const extra =
+        state.gameTier === "buy"
+          ? " · <strong>hors Game Pass</strong> : jouables en cloud une fois achetés (heures de cloud payantes sans abonnement)"
+          : state.gameTier === "free"
+          ? " · <strong>free-to-play</strong> : jouables en cloud sans acheter le jeu"
+          : "";
       html +=
-        '<div class="ref-banner" data-action="games-info">☁️ Catalogue <strong>Game Pass jouable en cloud</strong> · marché ' +
+        '<div class="ref-banner" data-action="games-info">☁️ Catalogue <strong>' +
+        (extra ? "Xbox Cloud Gaming" : "Game Pass jouable en cloud") +
+        "</strong> · marché " +
         esc(GAMES.market || "PL") +
         (GAMES.generatedAt ? " · màj du " + esc(fmtDateFr(GAMES.generatedAt)) : "") +
-        (t
-          ? " · <strong>" + esc(GP_LABEL[t]) + "</strong> : " + GP_CLOUD_HOURS[t] + " h de cloud par mois"
-          : " · cloud limité à 5 h / 10 h / 15 h par mois") +
+        (extra ||
+          (t
+            ? " · <strong>" + esc(GP_LABEL[t]) + "</strong> : " + GP_CLOUD_HOURS[t] + " h de cloud par mois"
+            : " · cloud limité à 5 h / 10 h / 15 h par mois")) +
         ' <span class="ref-more">Infos →</span></div>';
     } else if (state.tab === "reading" && state.shelf === "bd") {
       if (!(BD.bd || []).length) {
@@ -2882,9 +2905,13 @@
 
   function renderGamesInfo() {
     const counts = GP_TIERS.map(([t, lbl]) => {
-      const n = (GAMES.games || []).filter((g) => (GP_RANK[g.tier] || 9) <= GP_RANK[t]).length;
+      const n = (GAMES.games || []).filter((g) => isGamePass(g) && GP_RANK[g.tier] <= GP_RANK[t]).length;
       return "<li><strong>" + esc(lbl) + "</strong> : " + n + " jeux · " + GP_CLOUD_HOURS[t] + " h de cloud par mois</li>";
-    }).join("");
+    }).join("") +
+      "<li><strong>🆓 Gratuits</strong> : " + (GAMES.games || []).filter((g) => g.tier === "free").length +
+      " jeux free-to-play jouables en cloud</li>" +
+      "<li><strong>🛒 À acheter</strong> : " + (GAMES.games || []).filter((g) => g.tier === "buy").length +
+      " jeux jouables en cloud une fois achetés (hors Game Pass)</li>";
     let html = '<div class="sheet-handle"></div><div class="sheet-top"><div class="sheet-info"><div class="sheet-title">☁️ Game Pass en cloud</div>';
     html +=
       '<div class="card-orig" style="white-space:normal">Marché ' + esc(GAMES.market || "PL") +

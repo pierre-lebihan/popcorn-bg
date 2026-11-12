@@ -76,6 +76,8 @@ GENRES_FR = {
     "Word": "Lettres",
 }
 
+TIER_RANK = {"essential": 1, "premium": 2, "ultimate": 3, "free": 4, "buy": 5}
+
 STEAM_TTL_DAYS = 7  # avis Steam rafraîchis au bout de 7 jours
 STEAM_MISS_TTL_DAYS = 30  # jeu introuvable sur Steam : on réessaie au bout de 30 jours
 
@@ -360,19 +362,30 @@ def main() -> None:
             continue  # pas jouable en cloud (version PC uniquement, pack, édition…)
         subs = set((p.get("PassMetadataByPassProductId") or {}).keys())
         tiers = tiers_of(subs)
-        if not tiers:
-            continue  # jouable en cloud seulement si on l'achète, ou free-to-play : hors Game Pass
+        msrp = ((p.get("AnonymousPrice") or {}).get("MSRP")) or {}
+        programs = set(cloud.get("Programs") or [])
+        if tiers:
+            tier = tiers[0]
+        elif "F2P" in programs or (msrp.get("value") == 0):
+            tier = "free"  # free-to-play : jouable en cloud sans abonnement
+        else:
+            tier = "buy"  # hors Game Pass : jouable en cloud si on possède le jeu
         key = p.get("XCloudTitleId") or pid
-        cand = {"pid": pid, "titleEn": (p.get("ProductTitle") or "").strip(), "tiers": tiers,
-                "xcloud": p.get("XCloudTitleId") or ""}
+        cand = {"pid": pid, "titleEn": (p.get("ProductTitle") or "").strip(), "tier": tier,
+                "xcloud": p.get("XCloudTitleId") or "",
+                "price": msrp.get("formattedValue") or "" if tier == "buy" else "",
+                "priceValue": float(msrp.get("value") or 0) if tier == "buy" else 0}
         cur = by_title.get(key)
-        # plusieurs éditions pour un même jeu cloud : on garde celle incluse dans l'offre la moins chère
-        if not cur or (len(cand["tiers"]), -len(cand["titleEn"])) > (len(cur["tiers"]), -len(cur["titleEn"])):
+        # plusieurs éditions pour un même jeu cloud : on garde celle de l'offre la moins chère
+        # (puis, à offre égale, l'édition au titre le plus court = l'édition de base)
+        if not cur or (TIER_RANK[tier], len(cand["titleEn"])) < (TIER_RANK[cur["tier"]], len(cur["titleEn"])):
             by_title[key] = cand
-    games = list(by_title.values())
+    # Game Pass d'abord (pour que le budget Steam serve en priorité à ces jeux), puis gratuits, puis à acheter
+    games = sorted(by_title.values(), key=lambda g: TIER_RANK[g["tier"]])
     if args.limit:
         games = games[: args.limit]
-    log(f"🎮 {len(games)} jeux Game Pass jouables en cloud ({market})")
+    log(f"🎮 {len(games)} jeux jouables en cloud ({market}), dont "
+        f"{sum(1 for g in games if TIER_RANK[g['tier']] <= 3)} inclus dans le Game Pass")
     if not games:
         raise SystemExit("Aucun jeu Game Pass cloud trouvé : on garde le games.json existant")
 
@@ -435,7 +448,9 @@ def main() -> None:
             "type": "game",
             "title": title,
             "en": g["titleEn"] if norm(g["titleEn"]) != norm(title) else "",
-            "tier": g["tiers"][0],
+            "tier": g["tier"],
+            "price": g["price"],
+            "priceValue": g["priceValue"],
             "xcloud": g["xcloud"],
             "year": (m.get("release") or "")[:4],
             "release": m.get("release", ""),
@@ -467,7 +482,7 @@ def main() -> None:
     }
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    tiers = {t: sum(1 for x in out if x["tier"] == t) for t, _ in TIERS}
+    tiers = {t: sum(1 for x in out if x["tier"] == t) for t in TIER_RANK}
     log(f"✅ {len(out)} jeux {tiers}, Steam {steam_found} ({steam_calls} requêtes), "
         f"{sum(1 for x in out if x['leaving'])} sur le départ → {out_path} ({out_path.stat().st_size / 1024:.0f} Ko)")
 
