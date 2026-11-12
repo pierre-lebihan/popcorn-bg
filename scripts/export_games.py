@@ -418,6 +418,16 @@ def main() -> None:
     # 5. Steam (avec cache depuis le games.json publié)
     prev = load_previous(out_path)
     prev_by_id = {g["id"]: g for g in prev.get("games") or [] if g.get("id")}
+    prev_gp = any(TIER_RANK.get(x.get("tier"), 9) <= 3 for x in prev_by_id.values())
+
+    def added_at(old: dict, tier: str) -> str:
+        """Date d'arrivée dans le Game Pass : connue seulement pour les jeux apparus depuis un export précédent."""
+        if TIER_RANK[tier] > 3:
+            return ""
+        if old and TIER_RANK.get(old.get("tier"), 9) <= 3:
+            return old.get("addedAt") or ""
+        return today.isoformat() if prev_gp else ""
+
     deadline = time.time() + args.steam_budget * 60
     steam_calls = steam_found = steam_fail = 0
     out = []
@@ -483,7 +493,7 @@ def main() -> None:
             "xboxRating": m.get("xboxRating", 0),
             "xboxVotes": m.get("xboxVotes", 0),
             "leaving": pid in leaving,
-            "addedAt": old.get("addedAt") or (today.isoformat() if prev_by_id else ""),
+            "addedAt": added_at(old, g["tier"]),
         })
 
     out.sort(key=lambda x: (-x["score"], -x["votes"]))

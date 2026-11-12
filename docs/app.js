@@ -926,14 +926,24 @@
     return norm(item.en || item.title).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "game";
   }
 
+  // Tris et sélections proposés seulement quand le catalogue a les données (avis Steam, durées IGDB, ajouts)
+  function gameHas(field) {
+    const list = GAMES.games || [];
+    if (field === "votes") return list.some((g) => g.votes > 0);
+    if (field === "hours") return list.some((g) => g.hours > 0);
+    if (field === "new") return list.some(isNewGame);
+    if (field === "leaving") return list.some((g) => g.leaving);
+    return true;
+  }
+
   function gameSorts() {
     return [
       ["imdb", "⭐ Meilleure note"],
-      ["votes", "🔥 Nombre d'avis"],
+      ["votes", "🔥 Nombre d'avis Steam"],
       ["hours", "⏱️ Plus courts"],
       ["added", "🆕 Derniers ajouts"],
       ["year", "📅 Plus récents"]
-    ];
+    ].filter(([v]) => (v === "added" ? gameHas("new") : gameHas(v)));
   }
 
   function gamePresets() {
@@ -944,7 +954,14 @@
       ["new", "🆕 Ajoutés ce mois-ci"],
       ["leaving", "⏳ Quittent bientôt"],
       ["recent", "📅 Sortis depuis 2023"]
-    ];
+    ].filter(([v]) => (v === "short" ? gameHas("hours") : gameHas(v)));
+  }
+
+  // Part des jeux affichés qui ont déjà leur note Steam (récupérée par lots chaque nuit)
+  function steamCoverage() {
+    const list = (GAMES.games || []).filter((g) => (GP_RANK[state.gameTier] || state.gameTier === "all" ? isGamePass(g) : g.tier === state.gameTier));
+    const done = list.filter((g) => g.scoreSrc === "steam" || (g.steam && g.steam.at)).length;
+    return { done, total: list.length };
   }
 
   /* ---------------- Init ---------------- */
@@ -2003,6 +2020,12 @@
             ? " · <strong>" + esc(GP_LABEL[t]) + "</strong> : " + GP_CLOUD_HOURS[t] + " h de cloud par mois"
             : " · cloud limité à 5 h / 10 h / 15 h par mois")) +
         ' <span class="ref-more">Infos →</span></div>';
+      const cov = steamCoverage();
+      if (cov.total && cov.done < cov.total) {
+        html +=
+          '<div class="ref-banner">⏳ Notes Steam en cours de récupération : ' + cov.done + " / " + cov.total +
+          " jeux vérifiés. Le reste arrive au fil des exports de nuit (Steam limite le rythme des requêtes).</div>";
+      }
     } else if (state.tab === "reading" && state.shelf === "bd") {
       if (!(BD.bd || []).length) {
         elMainContent.innerHTML =

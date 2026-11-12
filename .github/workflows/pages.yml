@@ -91,14 +91,14 @@ jobs:
         # Endpoints publics Microsoft et Steam, sans clé. En cas d'échec, l'app garde l'ancien games.json :
         # on repart de la version publiée pour ne pas publier un onglet vide.
         continue-on-error: true
-        timeout-minutes: 30
+        timeout-minutes: 32
         env:
           GAMEPASS_MARKET: ${{ vars.GAMEPASS_MARKET || 'PL' }}
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
         run: |
           pip install -r requirements.txt
-          STEAM_BUDGET_MIN=15 timeout 25m python -u scripts/export_games.py --out docs/games.json || curl -fsS -o docs/games.json https://pierre-lebihan.github.io/popcorn-bg/games.json || true
+          STEAM_BUDGET_MIN=20 timeout 28m python -u scripts/export_games.py --out docs/games.json || curl -fsS -o docs/games.json https://pierre-lebihan.github.io/popcorn-bg/games.json || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
