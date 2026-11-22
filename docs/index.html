@@ -200,17 +200,16 @@
       transition: background 0.15s ease, color 0.15s ease;
     }
 
-    .show-sm {
+    .series-tabs {
+      margin-top: 7px;
+      background: transparent;
+    }
+
+    .series-tabs[hidden] {
       display: none;
     }
 
     @media (max-width: 540px) {
-      .hide-sm {
-        display: none;
-      }
-      .show-sm {
-        display: inline;
-      }
       .tab-btn {
         font-size: 11.5px;
         gap: 3px;
@@ -1688,18 +1687,20 @@
         <button type="button" class="tab-btn" data-tab="series">
           📺 Séries <span class="tab-badge" id="badgeSeries">–</span>
         </button>
-        <button type="button" class="tab-btn" data-tab="catchup">
-          🔄 <span class="hide-sm">À rattraper</span><span class="show-sm">En cours</span> <span class="tab-badge alert" id="badgeCatchup">–</span>
-        </button>
-        <button type="button" class="tab-btn" data-tab="episodes">
-          🎯 Épisodes
-        </button>
         <button type="button" class="tab-btn" data-tab="reading">
           📚 Lecture <span class="tab-badge" id="badgeReading">–</span>
         </button>
         <button type="button" class="tab-btn" data-tab="games">
           🎮 Jeux <span class="tab-badge" id="badgeGames">–</span>
         </button>
+      </nav>
+
+      <nav class="tabs series-tabs" id="seriesTabs" aria-label="Vues des séries" hidden>
+        <button type="button" class="tab-btn" data-tab="series">Catalogue</button>
+        <button type="button" class="tab-btn" data-tab="catchup">
+          🔄 À rattraper <span class="tab-badge alert" id="badgeCatchup">–</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="episodes">🎯 Épisodes</button>
       </nav>
 
       <div class="toolbar" id="mainToolbar">

@@ -301,6 +301,7 @@
     gameShelf: "cloud",
     nativeMacOnly: false,
 
+    epQuery: "",
     epSeriesId: null,
     epFilter: "unwatched",
     epSort: "rating",
@@ -326,6 +327,7 @@
   const $ = (id) => document.getElementById(id);
   const elHeaderSub = $("headerSub");
   const elMainTabs = $("mainTabs");
+  const elSeriesTabs = $("seriesTabs");
   const elMainToolbar = $("mainToolbar");
   const elSearchInput = $("searchInput");
   const elSearchClear = $("searchClear");
@@ -1553,9 +1555,16 @@
     document.getElementById("badgeGames").textContent =
       gameSource().filter((x) => (state.gameShelf !== "cloud" || isGamePass(x)) && matchStatus(x, stRead)).length || "–";
     document.getElementById("badgeCatchup").textContent = loggedIn() ? catchupList(me()).length : "–";
-    document.querySelectorAll("#mainTabs .tab-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.tab === state.tab);
-    });
+    const section = state.tab === "catchup" || state.tab === "episodes" ? "series" : state.tab;
+    elSeriesTabs.hidden = section !== "series";
+    for (const [nav, activeTab] of [[elMainTabs, section], [elSeriesTabs, state.tab]]) {
+      nav.querySelectorAll(".tab-btn").forEach((button) => {
+        const active = button.dataset.tab === activeTab;
+        button.classList.toggle("active", active);
+        if (active) button.setAttribute("aria-current", nav === elSeriesTabs ? "page" : "true");
+        else button.removeAttribute("aria-current");
+      });
+    }
   }
 
   function chip(action, val, label, active, extraCls) {
@@ -1580,6 +1589,9 @@
   }
 
   function renderToolbar() {
+    const query = state.tab === "episodes" ? state.epQuery : state.q;
+    if (elSearchInput.value !== query) elSearchInput.value = query;
+    elSearchClear.classList.toggle("visible", query.length > 0);
     if (state.tab === "catchup") {
       elMainToolbar.style.display = "none";
       syncAdvOverlay(false);
@@ -2443,7 +2455,7 @@
     }
     html += "</div>";
 
-    const qNorm = norm(state.q.trim());
+    const qNorm = norm(state.epQuery.trim());
     const filterUnw = m && state.epFilter === "unwatched";
     const eps = (current.episodes || []).filter((ep) => {
       if (filterUnw && isEpWatched(m, current, ep[0], ep[1])) return false;
@@ -3300,39 +3312,47 @@
 
   /* ---------------- Événements ---------------- */
 
-  elMainTabs.addEventListener("click", (e) => {
-    const btn = e.target.closest(".tab-btn");
-    if (!btn || btn.dataset.tab === state.tab) return;
+  function navigateTo(tab) {
     const family = (t) => (t === "reading" ? "r" : t === "games" ? "g" : "v");
-    if (family(btn.dataset.tab) !== family(state.tab)) {
+    if (family(tab) !== family(state.tab)) {
       state.genre = "all";
       state.bdAward = "all";
       state.preset = "none";
       state.sort = "imdb";
-      state.status = defaultStatus(btn.dataset.tab);
+      state.status = defaultStatus(tab);
     }
-    state.tab = btn.dataset.tab;
-    btn.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+    state.tab = tab;
     state.advOpen = false;
-    if (state.tab === "movies" && (state.preset === "miniseries" || state.preset === "episodic")) state.preset = "none";
+    if (tab === "movies" && (state.preset === "miniseries" || state.preset === "episodic")) state.preset = "none";
     window.scrollTo({ top: 0, behavior: "instant" });
     renderAll();
-  });
+  }
+
+  for (const nav of [elMainTabs, elSeriesTabs]) {
+    nav.addEventListener("click", (e) => {
+      const btn = e.target.closest(".tab-btn");
+      if (!btn || btn.dataset.tab === state.tab) return;
+      navigateTo(btn.dataset.tab);
+      btn.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+    });
+  }
 
   elSearchInput.addEventListener("input", () => {
-    state.q = elSearchInput.value;
-    elSearchClear.classList.toggle("visible", state.q.length > 0);
-    if (state.tab === "episodes") renderEpisodesTab();
-    else {
+    const query = elSearchInput.value;
+    elSearchClear.classList.toggle("visible", query.length > 0);
+    if (state.tab === "episodes") {
+      state.epQuery = query;
+      renderEpisodesTab();
+    } else {
+      state.q = query;
       renderMoviesOrSeries();
       if (state.advOpen) renderToolbar();
     }
   });
 
   elSearchClear.addEventListener("click", () => {
-    state.q = "";
-    elSearchInput.value = "";
-    elSearchClear.classList.remove("visible");
+    if (state.tab === "episodes") state.epQuery = "";
+    else state.q = "";
     elSearchInput.focus();
     renderAll();
   });
@@ -3524,9 +3544,7 @@
         resetFilters();
         break;
       case "go-catchup":
-        state.tab = "catchup";
-        window.scrollTo({ top: 0, behavior: "instant" });
-        renderAll();
+        navigateTo("catchup");
         break;
       case "catchup-who":
         state.catchupWho = val;
@@ -3565,11 +3583,10 @@
         break;
       case "jump-episodes": {
         closeModal(false);
-        state.tab = "episodes";
         state.epSeriesId = Number(target.dataset.id);
         state.epSeason = "all";
-        window.scrollTo({ top: 0, behavior: "instant" });
-        renderAll();
+        state.epQuery = "";
+        navigateTo("episodes");
         break;
       }
       case "pick-ep-series":
