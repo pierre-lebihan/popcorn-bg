@@ -1,0 +1,211 @@
+[
+  {
+    "id": "BWMH951M3G3P",
+    "title": "RESIDENT EVIL 2",
+    "developer": "CAPCOM",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/1b/f2/bb/1bf2bb23-29e4-24c7-f953-4c3e88fd6bc4/AppIcon-0-0-1x_U007epad-0-11-0-85-220.png/512x512bb.jpg",
+    "platforms": {
+      "mac": "https://apps.apple.com/bg/app/id1640632432?platform=mac",
+      "ios": "https://apps.apple.com/bg/app/id1640632432"
+    },
+    "type": "game",
+    "genres": [
+      "Horreur"
+    ]
+  },
+  {
+    "id": "BVFDTJ1XF6CS",
+    "title": "RESIDENT EVIL 7 biohazard",
+    "developer": "CAPCOM",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/be/7e/ef/be7eef57-7e97-baeb-5861-8afb59c31588/AppIcon-0-0-1x_U007epad-0-10-0-85-220.png/512x512bb.jpg",
+    "platforms": {
+      "mac": "https://apps.apple.com/bg/app/id1640629241?platform=mac",
+      "ios": "https://apps.apple.com/bg/app/id1640629241"
+    },
+    "type": "game",
+    "genres": [
+      "Horreur"
+    ]
+  },
+  {
+    "id": "BW3T6SNS15BH",
+    "title": "RESIDENT EVIL 3",
+    "developer": "CAPCOM",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/ff/df/3b/ffdf3b1a-1d74-da1b-ccb1-e66633bce150/AppIcon-1x_U007epad-0-11-0-85-220-0.png/512x512bb.jpg",
+    "platforms": {
+      "mac": "https://apps.apple.com/bg/app/id1640630077?platform=mac",
+      "ios": "https://apps.apple.com/bg/app/id1640630077"
+    },
+    "type": "game",
+    "genres": [
+      "Horreur"
+    ]
+  },
+  {
+    "id": "9MW7MFV29CMF",
+    "title": "Resident Evil Village",
+    "developer": "CAPCOM",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/cd/93/cf/cd93cf3d-bfd2-04c2-b190-8e635cbde094/AppIcon-1x_U007emarketing-0-8-0-85-220-0.png/512x512bb.jpg",
+    "platforms": {
+      "mac": "https://apps.apple.com/bg/app/id1640627334?platform=mac",
+      "ios": "https://apps.apple.com/bg/app/id6450980545"
+    },
+    "type": "game",
+    "genres": [
+      "Horreur"
+    ]
+  },
+  {
+    "id": "9NQGN8TGNT8P",
+    "title": "DEATH STRANDING DIRECTOR'S CUT",
+    "developer": "505 Games (US), Inc.",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/52/21/46/5221468f-2c43-80c3-a117-84de564442d9/AppIcon-0-0-1x_U007epad-0-11-0-85-220.png/512x512bb.jpg",
+    "platforms": {
+      "mac": "https://apps.apple.com/bg/app/id6449748961?platform=mac",
+      "ios": "https://apps.apple.com/bg/app/id6449748961"
+    },
+    "type": "game",
+    "genres": [
+      "Action-aventure"
+    ]
+  },
+  {
+    "id": "9P42LWGMC7K4",
+    "title": "Assassin’s Creed Shadows",
+    "developer": "Ubisoft",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/bb/1a/89/bb1a891d-477e-9e2f-dfcc-9e68fb5d6c81/icon.png/512x512bb.png",
+    "platforms": {
+      "mac": "https://apps.apple.com/bg/app/id6497794841?platform=mac"
+    },
+    "type": "game",
+    "genres": [
+      "Action-aventure"
+    ]
+  },
+  {
+    "id": "9P4D0K92BM7V",
+    "title": "Control Ultimate Edition",
+    "developer": "Remedy Entertainment PLC",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/b6/fe/03/b6fe03f7-6401-387b-1a78-8b698f4d7138/AppIcon-0-0-1x_U007epad-0-1-85-220.png/512x512bb.jpg",
+    "platforms": {
+      "mac": "https://apps.apple.com/bg/app/id6502953520?platform=mac",
+      "ios": "https://apps.apple.com/bg/app/id6502953520"
+    },
+    "type": "game",
+    "genres": [
+      "Action-aventure"
+    ]
+  },
+  {
+    "id": "APP6462360082",
+    "title": "Resident Evil 4",
+    "developer": "CAPCOM",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/24/c8/c9/24c8c984-811f-2806-f307-1535d0fe84c8/AppIcon-1x_U007epad-0-11-0-85-220-0.png/512x512bb.jpg",
+    "platforms": {
+      "mac": "https://apps.apple.com/bg/app/id6462360082?platform=mac",
+      "ios": "https://apps.apple.com/bg/app/id6462360082"
+    },
+    "type": "game",
+    "genres": [
+      "Horreur"
+    ]
+  },
+  {
+    "id": "9PK087LNGJC5",
+    "title": "Balatro",
+    "developer": "Playstack Ltd",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/1a/a7/c0/1aa7c0eb-434a-5a6a-774c-b02a6b702fc1/iOS_AppIcon_Premium-0-0-1x_U007epad-0-1-85-220.png/512x512bb.jpg",
+    "platforms": {
+      "ios": "https://apps.apple.com/bg/app/id6502453075",
+      "android": "https://play.google.com/store/apps/details?id=com.playstack.balatro.android&gl=BG"
+    },
+    "type": "game",
+    "genres": [
+      "Cartes & plateau"
+    ]
+  },
+  {
+    "id": "BQSCNS1T8PHQ",
+    "title": "Dead Cells",
+    "developer": "Playdigious",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/04/ab/60/04ab6088-ae26-0721-6a18-3fcece1bdec5/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/512x512bb.jpg",
+    "platforms": {
+      "ios": "https://apps.apple.com/bg/app/id1389752090",
+      "android": "https://play.google.com/store/apps/details?id=com.playdigious.deadcells.mobile&gl=BG"
+    },
+    "type": "game",
+    "genres": [
+      "Action-aventure"
+    ]
+  },
+  {
+    "id": "C3D891Z6TNQM",
+    "title": "Stardew Valley",
+    "developer": "ConcernedApe",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/0e/df/12/0edf1230-3f6e-fbb3-7f72-f2aa844d100a/AppIcons-0-0-1x_U007emarketing-0-8-0-85-220.png/512x512bb.jpg",
+    "platforms": {
+      "ios": "https://apps.apple.com/bg/app/id1406710800",
+      "android": "https://play.google.com/store/apps/details?id=com.chucklefish.stardewvalley&gl=BG"
+    },
+    "type": "game",
+    "genres": [
+      "Simulation"
+    ]
+  },
+  {
+    "id": "9P6W46XMDJM5",
+    "title": "Slay the Spire",
+    "developer": "Balor Games",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/91/0c/92/910c920a-0ab6-1939-e297-083995b640c7/AppIcon-1x_U007emarketing-0-11-0-0-85-220-0.png/512x512bb.jpg",
+    "platforms": {
+      "ios": "https://apps.apple.com/bg/app/id1491530147",
+      "android": "https://play.google.com/store/apps/details?id=com.humble.SlayTheSpire&gl=BG"
+    },
+    "type": "game",
+    "genres": [
+      "Cartes & plateau"
+    ]
+  },
+  {
+    "id": "9PD5BM2Z8C4L",
+    "title": "Vampire Survivors",
+    "developer": "Poncle",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/f6/c2/37/f6c237b1-3008-9a70-8fea-1e62c27e7637/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/512x512bb.jpg",
+    "platforms": {
+      "ios": "https://apps.apple.com/bg/app/id6444525702",
+      "android": "https://play.google.com/store/apps/details?id=com.poncle.vampiresurvivors&gl=BG"
+    },
+    "type": "game",
+    "genres": [
+      "Action-aventure"
+    ]
+  },
+  {
+    "id": "APP728293409",
+    "title": "Monument Valley",
+    "developer": "ustwo games",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/21/8e/d8/218ed8a3-c616-9ec7-419e-368073b9deb7/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/512x512bb.jpg",
+    "platforms": {
+      "ios": "https://apps.apple.com/bg/app/id728293409",
+      "android": "https://play.google.com/store/apps/details?id=com.ustwo.monumentvalley&gl=BG"
+    },
+    "type": "game",
+    "genres": [
+      "Réflexion"
+    ]
+  },
+  {
+    "id": "APP1620883955",
+    "title": "Little Nightmares",
+    "developer": "Playdigious",
+    "cover": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/fd/9d/7f/fd9d7f67-ec50-01c3-c695-14113dafa0b8/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/512x512bb.jpg",
+    "platforms": {
+      "ios": "https://apps.apple.com/bg/app/id1620883955",
+      "android": "https://play.google.com/store/apps/details?id=com.playdigious.littlenightmare&gl=BG"
+    },
+    "type": "game",
+    "genres": [
+      "Horreur"
+    ]
+  }
+]
