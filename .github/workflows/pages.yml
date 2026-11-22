@@ -106,6 +106,15 @@ jobs:
         run: |
           python scripts/export_steam_mac.py || curl -fsS -o docs/steam-mac.json https://pierre-lebihan.github.io/popcorn-bg/steam-mac.json
 
+      - name: Exporter les catalogues Mac et mobiles
+        continue-on-error: true
+        timeout-minutes: 7
+        env:
+          TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+        run: |
+          timeout 6m python scripts/export_platform_games.py || curl -fsS --remove-on-error -o docs/platform-catalog.json https://pierre-lebihan.github.io/popcorn-bg/platform-catalog.json
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
