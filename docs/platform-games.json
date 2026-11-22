@@ -207,5 +207,21 @@
     "genres": [
       "Horreur"
     ]
+  },
+  {
+    "id": "BQVQTL3PCH05",
+    "title": "No Man's Sky",
+    "developer": "Hello Games",
+    "cover": "https://store-images.s-microsoft.com/image/apps.63540.68818099466568894.c45f3219-f40b-416f-b0ee-34cb9652410f.f4410eab-ad57-480c-8cff-d772b9b255d6?w=300",
+    "type": "game",
+    "genres": [
+      "Action-aventure",
+      "RPG",
+      "Simulation"
+    ],
+    "platforms": {
+      "macSteam": "https://store.steampowered.com/app/275850/"
+    },
+    "macSource": "https://www.nomanssky.com/2023/06/no-mans-sky-on-mac/"
   }
 ]

@@ -100,6 +100,12 @@ jobs:
           pip install -r requirements.txt
           STEAM_BUDGET_MIN=20 EXPORT_MAX_MIN=25 timeout 29m python -u scripts/export_games.py --out docs/games.json || curl -fsS -o docs/games.json https://pierre-lebihan.github.io/popcorn-bg/games.json || true
 
+      - name: Vérifier la compatibilité Apple Silicon sur Steam
+        continue-on-error: true
+        timeout-minutes: 4
+        run: |
+          python scripts/export_steam_mac.py || curl -fsS -o docs/steam-mac.json https://pierre-lebihan.github.io/popcorn-bg/steam-mac.json
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

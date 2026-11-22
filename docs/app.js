@@ -884,10 +884,17 @@
   const NEW_DAYS = 30;
 
   const GAME_SHELVES = { cloud: "Xbox Cloud", mac: "Mac Apple Silicon", android: "Android", ios: "iPhone et iPad" };
+  let curatedPlatformGames = [];
   let platformGames = [];
+  let steamMacGames = {};
+
+  function hasNativeMac(game) {
+    return Boolean(game.platforms?.macSteam || game.platforms?.mac);
+  }
 
   function gameSource() {
     if (state.gameShelf === "cloud") return GAMES.games || [];
+    if (state.gameShelf === "mac") return platformGames.filter(hasNativeMac);
     return platformGames.filter((game) => game.platforms[state.gameShelf]);
   }
 
@@ -1070,15 +1077,35 @@
     try {
       const res = await fetch("./platform-games.json", { cache: "no-cache" });
       if (!res.ok) throw new Error("HTTP " + res.status);
-      platformGames = await res.json();
+      curatedPlatformGames = await res.json();
     } catch (_) {
       // Une actualisation interrompue conserve la dernière sélection chargée.
     }
+    try {
+      const res = await fetch("./steam-mac.json", { cache: "no-cache" });
+      if (res.ok) steamMacGames = (await res.json()).confirmed || {};
+    } catch (_) {
+      // Conserve les confirmations Steam déjà chargées.
+    }
     const cloudById = new Map((GAMES.games || []).map((game) => [game.id, game]));
+    platformGames = curatedPlatformGames.map((game) => ({ ...game, platforms: { ...game.platforms } }));
+    const platformById = new Map(platformGames.map((game) => [game.id, game]));
+    for (const [id, appid] of Object.entries(steamMacGames)) {
+      const cloud = cloudById.get(id);
+      if (!cloud || cloud.steam?.appid !== appid) continue;
+      let game = platformById.get(id);
+      if (!game) {
+        const { title, developer, cover } = cloud;
+        game = { id, type: "game", title, developer, cover, platforms: {} };
+        platformGames.push(game);
+      }
+      game.platforms.macSteam = "https://store.steampowered.com/app/" + appid + "/";
+    }
     for (const game of platformGames) {
       const cloud = cloudById.get(game.id);
       if (cloud) {
         cloud.platforms = game.platforms;
+        cloud.macSource = game.macSource;
         for (const field of ["year", "genres", "overview", "score", "scoreSrc", "steam", "votes",
                              "press", "xboxRating", "xboxVotes", "hours"]) {
           if (cloud[field]) game[field] = cloud[field];
@@ -1417,7 +1444,7 @@
       if (state.genre !== "all" && !(item.genres || []).includes(state.genre)) return false;
       if (games) {
         if (state.gameShelf === "cloud") {
-          if (state.nativeMacOnly && !item.platforms?.mac) return false;
+          if (state.nativeMacOnly && !hasNativeMac(item)) return false;
           if (GP_RANK[state.gameTier]) {
             if (!isGamePass(item) || GP_RANK[item.tier] > GP_RANK[state.gameTier]) return false;
           } else if (state.gameTier === "free" || state.gameTier === "buy") {
@@ -2133,8 +2160,11 @@
           " jeux vérifiés. Le reste arrive au fil des exports de nuit (Steam limite le rythme des requêtes).</div>";
       }
     } else if (state.tab === "games") {
-      html += '<div class="ref-banner">Sélection ' + esc(GAME_SHELVES[state.gameShelf]) +
-        ' · Consulte la fiche boutique pour les appareils compatibles.</div>';
+      html += '<div class="ref-banner">' +
+        (state.gameShelf === "mac"
+          ? "Versions natives vérifiées sur Steam, l’App Store ou auprès de l’éditeur."
+          : "Sélection " + esc(GAME_SHELVES[state.gameShelf]) + " · Consulte la fiche boutique pour les appareils compatibles.") +
+        "</div>";
     } else if (state.tab === "reading" && state.shelf === "bd") {
       if (!(BD.bd || []).length) {
         elMainContent.innerHTML =
@@ -3011,9 +3041,17 @@
     html += "</div></div>";
     const slug = gameSlug(item);
     html += '<div class="sheet-actions">';
-    for (const [platform, url] of Object.entries(item.platforms || {})) {
-      html += '<a class="btn-action" href="' + esc(url) + '" target="_blank" rel="noopener">' +
-        esc(GAME_SHELVES[platform]) + ' ↗</a>';
+    const { macSteam, mac, android, ios } = item.platforms || {};
+    const stores = [
+      [macSteam, "Mac sur Steam"],
+      [mac, "Mac sur l’App Store"],
+      [android, GAME_SHELVES.android],
+      [ios, GAME_SHELVES.ios],
+      [item.macSource, "Compatibilité Mac chez l’éditeur"]
+    ];
+    for (const [url, label] of stores) {
+      if (url) html += '<a class="btn-action" href="' + esc(url) + '" target="_blank" rel="noopener">' +
+        esc(label) + ' ↗</a>';
     }
     if (item.tier) {
       html +=
